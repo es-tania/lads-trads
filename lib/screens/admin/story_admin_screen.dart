@@ -229,7 +229,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
                               '${data.parts.length} ${data.parts.length == 1 ? 'partie' : 'parties'} · $lineCount',
                               style: InkText.count,
                             ),
-                            onTap: () => Navigator.pushNamed(context, Routes.editor),
+                            onTap: () => Navigator.pushNamed(context, Routes.editor, arguments: story.id),
                           ),
                           InkRow(
                             label: 'Remplacer par un .docx',

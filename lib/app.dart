@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'screens/admin/characters_screen.dart';
-import 'screens/admin/edit_line_screen.dart';
 import 'screens/admin/editor_screen.dart';
 import 'screens/admin/export_screen.dart';
 import 'screens/admin/import_screen.dart';
@@ -14,7 +13,8 @@ import 'theme/ink.dart';
 
 /// Noms des routes. Les écrans admin portent le préfixe /admin.
 ///
-/// Arguments : [folder] et [story] attendent un identifiant (int),
+/// Arguments : [folder] attend un identifiant de dossier (int) ; [story],
+/// [storyAdmin], [editor] et [replaceContent] un identifiant d'histoire ;
 /// [import] un identifiant de personnage facultatif.
 abstract final class Routes {
   static const library = '/';
@@ -26,12 +26,11 @@ abstract final class Routes {
   static const replaceContent = '/admin/remplacer';
   static const storyAdmin = '/admin/fiche';
   static const editor = '/admin/editeur';
-  static const editLine = '/admin/replique';
   static const export = '/admin/export';
   static const characters = '/admin/personnages';
 
   /// Écrans qui s'ouvrent comme une fenêtre (croix en haut à gauche).
-  static const _modals = {editLine, export};
+  static const _modals = {export};
 }
 
 class LadsTradApp extends StatelessWidget {
@@ -59,8 +58,7 @@ class LadsTradApp extends StatelessWidget {
       Routes.import => ImportScreen(characterId: arg as int?),
       Routes.replaceContent => ImportScreen(replaceStoryId: arg! as int),
       Routes.storyAdmin => StoryAdminScreen(storyId: arg! as int),
-      Routes.editor => const EditorScreen(),
-      Routes.editLine => const EditLineScreen(),
+      Routes.editor => EditorScreen(storyId: arg! as int),
       Routes.export => const ExportScreen(),
       Routes.characters => const CharactersScreen(),
       _ => const LibraryScreen(),

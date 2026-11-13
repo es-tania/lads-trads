@@ -22,7 +22,8 @@ void _phone(WidgetTester tester) {
   addTearDown(tester.view.reset);
 }
 
-DocParagraph _p(String text, {bool h1 = false}) => DocParagraph(text: text, isHeading1: h1, isListItem: false);
+DocParagraph _p(String text, {bool h1 = false, bool list = false}) =>
+    DocParagraph(text: text, isHeading1: h1, isListItem: list);
 
 /// La base tourne dans un vrai fil d'exécution : on la laisse travailler
 /// hors de l'horloge simulée des tests, puis on redessine.
@@ -317,5 +318,125 @@ void main() {
     expect(find.text('Couverture'), findsNothing);
     expect(find.text('Classement'), findsNothing);
     expect(find.textContaining('Le titre, le dossier et la couverture sont gardés'), findsOneWidget);
+  });
+
+  Future<void> openEditor(WidgetTester tester, {String story = 'Into The Canvas'}) async {
+    await enterAdmin(tester);
+    await tester.tap(find.text(story));
+    await _settle(tester);
+    await tester.tap(find.text('Modifier'));
+    await _settle(tester);
+    await tester.tap(find.text('Modifier les dialogues'));
+    await _settle(tester);
+  }
+
+  testWidgets("L'éditeur modifie une réplique, sa note, puis en insère une après", (tester) async {
+    await start(tester);
+    await openEditor(tester);
+    expect(find.text('Ép. 1'), findsOneWidget);
+    expect(find.text('L.001'), findsOneWidget);
+    expect(find.text('Enregistré'), findsNothing);
+
+    await tester.tap(find.text('Salut.'));
+    await _settle(tester);
+    expect(find.text('Modifier la réplique'), findsOneWidget);
+    expect(find.text('Épisode 1 · L.001'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Salut.'), 'Bonjour.');
+    await tester.pump();
+    expect(find.text('Avant : Salut.'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Visible seulement en admin'), 'à revoir');
+    await tester.pump();
+    await tester.tap(find.text('Enregistrer'));
+    await _settle(tester);
+    expect(find.text('Bonjour.'), findsOneWidget);
+    expect(find.text('Note : à revoir'), findsOneWidget);
+    expect(find.text('Enregistré'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Insérer une réplique ici'));
+    await _settle(tester);
+    expect(find.text('Nouvelle réplique'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'Ça va ?');
+    await tester.pump();
+    await tester.tap(find.text('Ajouter'));
+    await _settle(tester);
+    expect(find.text('Ça va ?'), findsOneWidget);
+    expect(find.text('L.002'), findsOneWidget);
+
+    // Une autre partie.
+    await tester.tap(find.text('Kindled').last);
+    await _settle(tester);
+    expect(find.text('Il sourit.'), findsOneWidget);
+  });
+
+  testWidgets("L'éditeur supprime une réplique après confirmation", (tester) async {
+    await start(tester);
+    await openEditor(tester);
+    await tester.tap(find.text('Salut.'));
+    await _settle(tester);
+    await tester.tap(find.byTooltip('Supprimer la réplique'));
+    await _settle(tester);
+    await tester.tap(find.text('Supprimer'));
+    await _settle(tester);
+    expect(find.text('Salut.'), findsNothing);
+    expect(find.text('Aucune réplique dans cette partie.'), findsOneWidget);
+  });
+
+  testWidgets("L'éditeur montre les choix et gère les branches", (tester) async {
+    await start(tester);
+    await tester.runAsync(() async {
+      final rafayel = (await library.characters()).first.id;
+      final folder = await library.folderFor(rafayel, FolderType.memoria, rarity: 5);
+      await library.saveStory(
+        folderId: folder,
+        title: 'Blossoms',
+        parsed: parseStoryParagraphs(
+          fr: [
+            _p('KINDLED', h1: true),
+            _p('Choix:'),
+            _p('Réussite !', list: true),
+            _p('Rafayel : Bravo.'),
+            _p('Échec…', list: true),
+            _p('Rafayel : Dommage.'),
+            _p('---'),
+            _p('Il sourit.'),
+          ],
+          en: [
+            _p('KINDLED', h1: true),
+            _p('Choices :'),
+            _p('01. Success!'),
+            _p('Rafayel : Well done.'),
+            _p('02. Failure...'),
+            _p('Rafayel : Too bad.'),
+            _p('---'),
+            _p('He smiles.'),
+          ],
+        ),
+      );
+    });
+    await _settle(tester);
+    await openEditor(tester, story: 'Blossoms');
+
+    expect(find.text('Choix'), findsOneWidget);
+    expect(find.text('--- suite commune'), findsOneWidget);
+    expect(find.text('L.001'), findsOneWidget, reason: 'le choix prend le numéro de sa première branche');
+    expect(find.text('L.002'), findsOneWidget, reason: 'puis la suite commune');
+
+    await tester.tap(find.text('Ajouter une branche'));
+    await _settle(tester);
+    expect(find.text('Branche C'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Abandon');
+    await tester.pump();
+    await tester.tap(find.text('Ajouter'));
+    await _settle(tester);
+    expect(find.textContaining('Abandon'), findsOneWidget);
+    expect(find.text('Ajouter une réplique'), findsNWidgets(2), reason: 'branche vide + bouton du bas');
+
+    await tester.tap(find.textContaining('Abandon'));
+    await _settle(tester);
+    await tester.tap(find.text('Supprimer la branche'));
+    await _settle(tester);
+    await tester.tap(find.text('Supprimer'));
+    await _settle(tester);
+    expect(find.textContaining('Abandon'), findsNothing);
   });
 }
