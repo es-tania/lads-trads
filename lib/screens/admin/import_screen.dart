@@ -1,4 +1,3 @@
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
@@ -11,6 +10,7 @@ import '../../docx/story_model.dart';
 import '../../docx/story_parser.dart';
 import '../../theme/ink.dart';
 import '../../widgets/ink_widgets.dart';
+import 'folder_choice.dart';
 
 /// Fichier choisi par la traductrice.
 class _Picked {
@@ -20,37 +20,21 @@ class _Picked {
   final Uint8List bytes;
 }
 
-/// Dossier proposé dans la liste : existant, ou à créer à l'import.
-class _FolderChoice {
-  const _FolderChoice({required this.name, required this.type, this.rarity, this.id});
-
-  final int? id;
-  final String name;
-  final FolderType type;
-  final int? rarity;
-
-  /// Deux choix sont le même dossier s'ils désignent le même dossier existant,
-  /// ou le même type à créer.
-  String get key => id != null ? 'id:$id' : 'new:${type.code}:$rarity';
-}
-
-const _defaultChoices = [
-  _FolderChoice(name: 'Memoria 5★', type: FolderType.memoria, rarity: 5),
-  _FolderChoice(name: 'Memoria 4★', type: FolderType.memoria, rarity: 4),
-  _FolderChoice(name: 'Myths', type: FolderType.myths),
-  _FolderChoice(name: 'Secret Time', type: FolderType.secretTime),
-  _FolderChoice(name: 'Tender Moment', type: FolderType.tenderMoment),
-];
-
 /// Analyse dans un isolat séparé : une longue histoire (Myths) peut prendre
 /// une seconde, l'interface reste fluide pendant ce temps.
 ParsedStory _parseInBackground((Uint8List, Uint8List) files) => parseStoryDocx(fr: files.$1, en: files.$2);
 
 class ImportScreen extends StatefulWidget {
-  const ImportScreen({super.key, this.characterId});
+  const ImportScreen({super.key, this.characterId, this.replaceStoryId});
 
   /// Personnage sélectionné dans la bibliothèque au moment d'ouvrir l'import.
   final int? characterId;
+
+  /// Histoire dont on remplace les parties et répliques (depuis sa fiche).
+  /// Le titre, le dossier et la couverture sont alors gardés.
+  final int? replaceStoryId;
+
+  bool get replacing => replaceStoryId != null;
 
   @override
   State<ImportScreen> createState() => _ImportScreenState();
@@ -128,16 +112,16 @@ class _ImportScreenState extends State<ImportScreen> {
   }
 
   /// « Into The Canvas (Memoria) » → dossier Memoria 5★ par défaut.
-  _FolderChoice? _guessFolder(ParsedStory parsed) {
+  FolderChoice? _guessFolder(ParsedStory parsed) {
     final hint = (parsed.subtitle ?? '').toLowerCase();
-    if (hint.contains('memoria') || hint.contains('memories')) return _defaultChoices[0];
-    if (hint.contains('myth')) return _defaultChoices[2];
-    if (hint.contains('secret')) return _defaultChoices[3];
-    if (hint.contains('tender')) return _defaultChoices[4];
+    if (hint.contains('memoria') || hint.contains('memories')) return defaultFolderChoices[0];
+    if (hint.contains('myth')) return defaultFolderChoices[2];
+    if (hint.contains('secret')) return defaultFolderChoices[3];
+    if (hint.contains('tender')) return defaultFolderChoices[4];
     return null;
   }
 
-  Future<void> _import(List<_FolderChoice> choices) async {
+  Future<void> _import(List<FolderChoice> choices) async {
     final parsed = _parsed;
     final characterId = _characterId;
     final choice = choices.where((c) => c.key == _folderKey).firstOrNull;
@@ -165,8 +149,26 @@ class _ImportScreenState extends State<ImportScreen> {
     }
   }
 
+  Future<void> _replace() async {
+    final parsed = _parsed;
+    if (parsed == null) return;
+    setState(() => _saving = true);
+    try {
+      await context.library.replaceStoryContent(widget.replaceStoryId!, parsed);
+      if (!mounted) return;
+      showStepSnack(context, 'Contenu remplacé.');
+      Navigator.pop(context);
+    } on Object catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        showStepSnack(context, 'Remplacement impossible : $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final replacing = widget.replacing;
     return LibraryQuery<(List<Character>, List<Folder>)>(
       args: _characterId,
       load: (library) async {
@@ -177,9 +179,9 @@ class _ImportScreenState extends State<ImportScreen> {
       builder: (context, data) {
         final (characters, folders) = data;
         _characterId ??= characters.first.id;
-        final choices = _folderChoices(folders);
+        final choices = folderChoices(folders);
         if (!choices.any((c) => c.key == _folderKey)) _folderKey = null;
-        final ready = _parsed != null && _folderKey != null && !_saving && !_parsing;
+        final ready = _parsed != null && (replacing || _folderKey != null) && !_saving && !_parsing;
 
         return Scaffold(
           body: SafeArea(
@@ -198,7 +200,7 @@ class _ImportScreenState extends State<ImportScreen> {
                       ),
                       Expanded(
                         child: Text(
-                          'Importer une histoire',
+                          replacing ? 'Remplacer le contenu' : 'Importer une histoire',
                           style: InkText.screenTitle.copyWith(fontSize: 24),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -219,12 +221,17 @@ class _ImportScreenState extends State<ImportScreen> {
                         Text(_error!, style: const TextStyle(fontSize: 13, color: Color(0xFFF28B82))),
                       ],
                       const SizedBox(height: 24),
-                      const InkSectionLabel('Classement'),
-                      _classification(characters, choices),
-                      if (_parsed != null) ...[
-                        const SizedBox(height: 24),
-                        _Checks(parsed: _parsed!),
+                      if (replacing)
+                        const InkComingSoon(
+                          text:
+                              'Les parties et répliques actuelles seront remplacées par celles des nouveaux fichiers. '
+                              'Le titre, le dossier et la couverture sont gardés.',
+                        )
+                      else ...[
+                        const InkSectionLabel('Classement'),
+                        _classification(characters, choices),
                       ],
+                      if (_parsed != null) ...[const SizedBox(height: 24), _Checks(parsed: _parsed!)],
                     ],
                   ),
                 ),
@@ -232,23 +239,12 @@ class _ImportScreenState extends State<ImportScreen> {
             ),
           ),
           bottomNavigationBar: InkBottomAction(
-            label: _saving ? 'Import en cours…' : 'Importer',
-            onPressed: ready ? () => _import(choices) : null,
+            label: replacing ? (_saving ? 'Remplacement…' : 'Remplacer') : (_saving ? 'Import en cours…' : 'Importer'),
+            onPressed: ready ? (replacing ? _replace : () => _import(choices)) : null,
           ),
         );
       },
     );
-  }
-
-  List<_FolderChoice> _folderChoices(List<Folder> folders) {
-    final existing = [
-      for (final f in folders) _FolderChoice(id: f.id, name: f.name, type: f.type, rarity: f.rarity),
-    ];
-    // Types par défaut pas encore créés pour ce personnage.
-    final missing = _defaultChoices.where(
-      (d) => !folders.any((f) => f.type == d.type && f.rarity == d.rarity),
-    );
-    return [...existing, ...missing];
   }
 
   Widget _filesGroup() {
@@ -280,24 +276,25 @@ class _ImportScreenState extends State<ImportScreen> {
           onTap: () => _pickDocx(french: false),
           changeLabel: _en == null ? 'Choisir' : 'Changer',
         ),
-        _FileRow(
-          badge: _cover == null
-              ? const _Badge(null)
-              : ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: Image.memory(_cover!.bytes, width: 30, height: 40, fit: BoxFit.cover, cacheWidth: 90),
-                ),
-          title: 'Couverture',
-          subtitle: 'facultative',
-          detail: _cover?.name ?? 'Choisir une image',
-          onTap: _pickCover,
-          changeLabel: _cover == null ? 'Choisir' : 'Changer',
-        ),
+        if (!widget.replacing)
+          _FileRow(
+            badge: _cover == null
+                ? const _Badge(null)
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.memory(_cover!.bytes, width: 30, height: 40, fit: BoxFit.cover, cacheWidth: 90),
+                  ),
+            title: 'Couverture',
+            subtitle: 'facultative',
+            detail: _cover?.name ?? 'Choisir une image',
+            onTap: _pickCover,
+            changeLabel: _cover == null ? 'Choisir' : 'Changer',
+          ),
       ],
     );
   }
 
-  Widget _classification(List<Character> characters, List<_FolderChoice> choices) {
+  Widget _classification(List<Character> characters, List<FolderChoice> choices) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -319,7 +316,7 @@ class _ImportScreenState extends State<ImportScreen> {
                     final previous = choices.where((c) => c.key == _folderKey).firstOrNull;
                     _folderKey = previous == null
                         ? null
-                        : _FolderChoice(name: previous.name, type: previous.type, rarity: previous.rarity).key;
+                        : FolderChoice(name: previous.name, type: previous.type, rarity: previous.rarity).key;
                   }),
                 ),
               ),
@@ -434,7 +431,11 @@ class _FileRow extends StatelessWidget {
                         if (subtitle != null)
                           TextSpan(
                             text: '  $subtitle',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: InkColors.textFaint),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: InkColors.textFaint,
+                            ),
                           ),
                       ],
                     ),
@@ -444,7 +445,10 @@ class _FileRow extends StatelessWidget {
                 ],
               ),
             ),
-            TextButton(onPressed: onTap, child: Text(changeLabel, style: const TextStyle(fontSize: 14))),
+            TextButton(
+              onPressed: onTap,
+              child: Text(changeLabel, style: const TextStyle(fontSize: 14)),
+            ),
           ],
         ),
       ),
