@@ -6,6 +6,7 @@ import '../data/models.dart';
 import '../data/services.dart';
 import '../state/admin_mode.dart';
 import '../theme/ink.dart';
+import '../widgets/character_avatar.dart';
 import '../widgets/cover.dart';
 import '../widgets/ink_widgets.dart';
 
@@ -45,7 +46,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   _header(admin, current),
                   const SizedBox(height: 16),
                   _characterTabs(characters, current),
-                  const SizedBox(height: 24),
+                  if (admin) const _EditCharactersLink(),
+                  SizedBox(height: admin ? 16 : 24),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: _CharacterContent(character: current, admin: admin),
@@ -91,15 +93,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           if (admin) ...[
             const SizedBox(width: 8),
-            FilledButton.icon(
+            // Icône seule : le « + » suffit, l'infobulle garde le nom.
+            IconButton.filled(
+              tooltip: 'Importer',
               onPressed: () => Navigator.pushNamed(context, Routes.import, arguments: current.id),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(44, 44),
-                padding: const EdgeInsets.only(left: 10, right: 12),
-                textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14, fontWeight: FontWeight.w500),
+              style: IconButton.styleFrom(
+                backgroundColor: InkColors.text,
+                foregroundColor: InkColors.bg,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Importer'),
             ),
           ],
         ],
@@ -108,44 +111,133 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _characterTabs(List<Character> characters, Character current) {
-    return SizedBox(
-      height: 32,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: characters.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          final character = characters[i];
-          final selected = character.id == current.id;
-          return Semantics(
-            selected: selected,
-            button: true,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => setState(() => _characterId = character.id),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: selected ? InkColors.raised : null,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: selected ? InkColors.borderStrong : const Color(0x00000000)),
-                ),
-                child: Text(
-                  character.name,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-                    color: selected ? InkColors.text : InkColors.textMuted,
-                  ),
-                ),
-              ),
+    // Comme la maquette : six bulles tiennent sur un écran de 390 points.
+    const itemWidth = 52.0;
+    const minGap = 4.0;
+    const scrollGap = 12.0;
+    Widget bubble(Character character) => _CharacterBubble(
+          character: character,
+          selected: character.id == current.id,
+          width: itemWidth,
+          onTap: () => setState(() => _characterId = character.id),
+        );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const side = 20.0 - (itemWidth - 48) / 2;
+        final available = constraints.maxWidth - 2 * side;
+        final fits = characters.length * itemWidth + (characters.length - 1) * minGap <= available;
+        // Peu de personnages : réparties sur la largeur. Beaucoup : elles défilent.
+        if (fits) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: side),
+            child: Row(
+              mainAxisAlignment: characters.length == 1 ? MainAxisAlignment.start : MainAxisAlignment.spaceBetween,
+              children: [for (final c in characters) bubble(c)],
             ),
           );
-        },
+        }
+        return SizedBox(
+          height: _CharacterBubble.height,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: side),
+            itemCount: characters.length,
+            separatorBuilder: (_, _) => const SizedBox(width: scrollGap),
+            itemBuilder: (context, i) => bubble(characters[i]),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Onglet d'un personnage : bulle recadrée et nom dessous.
+class _CharacterBubble extends StatelessWidget {
+  const _CharacterBubble({required this.character, required this.selected, required this.width, required this.onTap});
+
+  /// Anneau (4) + bulle (48) + espace (8) + nom (16) + anneau sous la bulle.
+  static const height = 4 + 48 + 8 + 16 + 4.0;
+
+  final Character character;
+  final bool selected;
+  final double width;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Column(
+            children: [
+              const SizedBox(height: 4),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  // Sélectionné : anneau clair de 2 px, décalé de 2 px.
+                  boxShadow: selected
+                      ? const [
+                          BoxShadow(color: InkColors.text, spreadRadius: 4),
+                          BoxShadow(color: InkColors.bg, spreadRadius: 2),
+                        ]
+                      : const [BoxShadow(color: Color(0x1AEEF0F5), spreadRadius: 1)],
+                ),
+                child: ExcludeSemantics(child: CharacterAvatar.of(character, size: 48)),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                character.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 16 / 12,
+                  fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                  color: selected ? InkColors.text : InkColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lien admin vers l'écran Personnages, sous les bulles à droite.
+class _EditCharactersLink extends StatelessWidget {
+  const _EditCharactersLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => Navigator.pushNamed(context, Routes.characters),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.edit_outlined, size: 14, color: InkColors.textFaint),
+                SizedBox(width: 4),
+                Text('Modifier les personnages', style: TextStyle(fontSize: 12, color: InkColors.textFaint)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -186,7 +278,7 @@ class _CharacterContent extends StatelessWidget {
             if (folders.isEmpty)
               InkComingSoon(
                 text: admin
-                    ? 'Aucune histoire pour ${character.name}. Touche « Importer » pour en ajouter une.'
+                    ? 'Aucune histoire pour ${character.name}. Touche « + » en haut pour en ajouter une.'
                     : 'Aucune histoire traduite pour ${character.name} pour l\'instant.',
               )
             else
@@ -251,7 +343,7 @@ class _FolderRow extends StatelessWidget {
     return InkWell(
       onTap: () => Navigator.pushNamed(context, Routes.folder, arguments: folder.id),
       child: SizedBox(
-        height: hasCovers ? 64 : 56,
+        height: hasCovers ? 64 : 52,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(

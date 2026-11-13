@@ -1,6 +1,7 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
-import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lads_trad/app.dart';
 import 'package:lads_trad/data/database.dart';
@@ -29,6 +30,13 @@ Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 5; i++) {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
     await tester.pumpAndSettle();
+  }
+}
+
+/// Comme [_settle], jusqu'à ce que [finder] trouve quelque chose (images).
+Future<void> _settleUntil(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 20 && finder.evaluate().isEmpty; i++) {
+    await _settle(tester);
   }
 }
 
@@ -68,7 +76,7 @@ void main() {
   testWidgets('La bibliothèque mène à un dossier puis à une histoire', (tester) async {
     await start(tester);
     expect(find.text('Bibliothèque'), findsOneWidget);
-    expect(find.text('Importer'), findsNothing);
+    expect(find.byTooltip('Importer'), findsNothing);
     expect(find.text('Ajoutées récemment'), findsOneWidget);
 
     await tester.tap(find.text('Memoria 5★'));
@@ -94,10 +102,10 @@ void main() {
     await start(tester);
     await tester.longPress(find.text('Bibliothèque'));
     await _settle(tester);
-    expect(find.text('Importer'), findsOneWidget);
+    expect(find.byTooltip('Importer'), findsOneWidget);
     expect(find.text('Nouveau dossier'), findsOneWidget);
 
-    await tester.tap(find.text('Importer'));
+    await tester.tap(find.byTooltip('Importer'));
     await _settle(tester);
     expect(find.text('Importer une histoire'), findsOneWidget);
     expect(find.text('Rafayel'), findsOneWidget, reason: 'personnage choisi dans la bibliothèque');
@@ -119,5 +127,97 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Grand'));
     await _settle(tester);
     expect(settings.textSize, OverlayTextSize.large);
+  });
+
+  Future<void> openCharacters(WidgetTester tester) async {
+    await tester.longPress(find.text('Bibliothèque'));
+    await _settle(tester);
+    await tester.tap(find.text('Modifier les personnages'));
+    await _settle(tester);
+  }
+
+  testWidgets('Le lien « Modifier les personnages » est réservé au mode admin', (tester) async {
+    await start(tester);
+    expect(find.text('Modifier les personnages'), findsNothing);
+    await openCharacters(tester);
+    expect(find.text('Touche un personnage pour changer son image'), findsOneWidget);
+    expect(find.text('Ajouter une image'), findsNWidgets(5));
+  });
+
+  testWidgets('On ajoute un personnage, qui apparaît dans la bibliothèque', (tester) async {
+    await start(tester);
+    await openCharacters(tester);
+    await tester.tap(find.text('Ajouter un personnage'));
+    await _settle(tester);
+    await tester.enterText(find.byType(EditableText), 'Valko');
+    await tester.pump();
+    await tester.tap(find.text('Ajouter'));
+    await _settle(tester);
+    expect(find.text('Valko'), findsOneWidget);
+    expect(find.text('Ajouter une image'), findsNWidgets(6));
+
+    // Un doublon est refusé dans la fenêtre.
+    await tester.tap(find.text('Ajouter un personnage'));
+    await _settle(tester);
+    await tester.enterText(find.byType(EditableText), 'valko');
+    await tester.pump();
+    await tester.tap(find.text('Ajouter'));
+    await _settle(tester);
+    expect(find.text('« valko » existe déjà.'), findsOneWidget);
+    await tester.tap(find.text('Annuler'));
+    await _settle(tester);
+
+    await tester.tap(find.byTooltip('Retour'));
+    await _settle(tester);
+    expect(find.text('Valko'), findsOneWidget);
+    expect(find.text('V'), findsOneWidget, reason: 'initiale sans image');
+  });
+
+  testWidgets("Sans image, le panneau propose seulement d'en choisir une", (tester) async {
+    await start(tester);
+    await openCharacters(tester);
+    await tester.tap(find.text('Rafayel'));
+    await _settle(tester);
+    expect(find.text('Image de Rafayel'), findsOneWidget);
+    expect(find.text("Aucune image pour l'instant"), findsOneWidget);
+    expect(find.text('Choisir une image'), findsOneWidget);
+    final save = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Enregistrer'));
+    expect(save.onPressed, isNull);
+
+    await tester.tap(find.text('Annuler'));
+    await _settle(tester);
+    expect(find.text('Image de Rafayel'), findsNothing);
+  });
+
+  testWidgets('Glisser le cercle puis enregistrer change le recadrage', (tester) async {
+    await start(tester);
+    await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawRect(const Rect.fromLTWH(0, 0, 300, 400), Paint()..color = const Color(0xFF336699));
+      final image = await recorder.endRecording().toImage(300, 400);
+      final png = await image.toByteData(format: ui.ImageByteFormat.png);
+      final zayne = (await library.characters())[2];
+      await library.setCharacterImage(zayne.id, png!.buffer.asUint8List(), 'zayne.png');
+    });
+    await openCharacters(tester);
+    expect(find.text('Changer'), findsOneWidget);
+
+    await tester.tap(find.text('Zayne'));
+    // Lecture et décodage de l'image : un peu plus long que la base.
+    await _settleUntil(tester, find.text('Glisse le cercle sur le visage'));
+    expect(find.text('Glisse le cercle sur le visage'), findsOneWidget);
+
+    // Image 300 × 400 : cercle par défaut au centre, on le remonte.
+    await tester.drag(find.bySemanticsLabel('Déplacer le cadrage'), const Offset(0, -200));
+    await _settle(tester);
+    await tester.tap(find.text('Enregistrer'));
+    await _settle(tester);
+
+    expect(find.text('Image de Zayne'), findsNothing);
+    final crop = (await tester.runAsync(() => library.characters()))![2].crop!;
+    expect(crop.x, closeTo(0.5, 1e-9));
+    expect(crop.d, 0.8);
+    // Rayon : 0,8 × 300 / 2 = 120 px sur 400 de haut : le cercle bute en haut.
+    expect(crop.y, closeTo(120 / 400, 1e-9));
   });
 }
