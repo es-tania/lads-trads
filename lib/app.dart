@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'screens/admin/characters_screen.dart';
 import 'screens/admin/edit_line_screen.dart';
 import 'screens/admin/editor_screen.dart';
 import 'screens/admin/export_screen.dart';
@@ -28,6 +29,7 @@ abstract final class Routes {
   static const editor = '/admin/editeur';
   static const editLine = '/admin/replique';
   static const export = '/admin/export';
+  static const characters = '/admin/personnages';
 
   /// Écrans qui s'ouvrent comme une fenêtre (croix en haut à gauche).
   static const _modals = {newFolder, editLine, export};
@@ -61,6 +63,7 @@ class LadsTradApp extends StatelessWidget {
       Routes.editor => const EditorScreen(),
       Routes.editLine => const EditLineScreen(),
       Routes.export => const ExportScreen(),
+      Routes.characters => const CharactersScreen(),
       _ => const LibraryScreen(),
     };
     return MaterialPageRoute<void>(
