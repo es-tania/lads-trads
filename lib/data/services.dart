@@ -69,7 +69,11 @@ class _LibraryQueryState<T> extends State<LibraryQuery<T>> {
     if (oldWidget.args != widget.args) _future = widget.load(_library!);
   }
 
-  void _reload() => setState(() => _future = widget.load(_library!));
+  // Accolades obligatoires : une flèche renverrait le Future, ce que
+  // setState refuse en mode debug.
+  void _reload() => setState(() {
+        _future = widget.load(_library!);
+      });
 
   @override
   void dispose() {
