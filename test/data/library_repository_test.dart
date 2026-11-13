@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:lads_trad/data/database.dart';
 import 'package:lads_trad/data/library_repository.dart';
 import 'package:lads_trad/data/models.dart';
@@ -131,5 +133,54 @@ void main() {
     expect(await repo.story(id), isNull);
     expect(await repo.lines(partId), isEmpty);
     expect(File(cover).existsSync(), isFalse);
+  });
+
+  test('ajoute un personnage à la fin, refuse les doublons et les noms vides', () async {
+    var notified = 0;
+    repo.addListener(() => notified++);
+    final id = await repo.addCharacter('  Valko ');
+    final all = await repo.characters();
+    expect(all.map((c) => c.name), [...defaultCharacters, 'Valko']);
+    expect(all.last.id, id);
+    expect(all.last.imagePath, isNull);
+    expect(all.last.crop, isNull);
+    expect(all.last.initial, 'V');
+    expect(notified, 1);
+
+    await expectLater(repo.addCharacter('valko'), throwsA(isA<DuplicateCharacterException>()));
+    await expectLater(repo.addCharacter('   '), throwsArgumentError);
+    expect(await repo.characters(), hasLength(6));
+  });
+
+  test("copie l'image d'un personnage et enregistre son recadrage", () async {
+    final xavier = (await repo.characters())[1];
+    await repo.setCharacterImage(xavier.id, Uint8List.fromList([4, 5]), 'Xavier.JPG');
+    var stored = (await repo.characters())[1];
+    final first = stored.imagePath!;
+    expect(first, endsWith('.jpg'));
+    expect(path.isWithin(covers.path, first), isTrue);
+    expect(File(first).readAsBytesSync(), [4, 5]);
+    expect(stored.crop, isNull, reason: "cadrage par défaut tant qu'il n'est pas choisi");
+
+    await repo.setCharacterCrop(xavier.id, const CharacterCrop(x: 0.3, y: 0.25, d: 0.6));
+    stored = (await repo.characters())[1];
+    expect(stored.crop, const CharacterCrop(x: 0.3, y: 0.25, d: 0.6));
+
+    // Une nouvelle image remplace l'ancienne, fichier compris, avec son cadrage.
+    await repo.setCharacterImage(xavier.id, Uint8List.fromList([6]), 'x.png', crop: const CharacterCrop(x: 0.5, y: 0.4, d: 0.8));
+    stored = (await repo.characters())[1];
+    expect(stored.imagePath, isNot(first));
+    expect(File(first).existsSync(), isFalse);
+    expect(stored.crop, const CharacterCrop(x: 0.5, y: 0.4, d: 0.8));
+    expect((await repo.characters()).first.imagePath, isNull, reason: 'les autres personnages ne changent pas');
+  });
+
+  test("le cercle de recadrage reste dans l'image", () {
+    const size = Size(300, 400);
+    final c = const CharacterCrop(x: 0, y: 1, d: 0.8).clampTo(size);
+    // Rayon : 0,8 × 300 / 2 = 120 px.
+    expect(c.x, closeTo(120 / 300, 1e-9));
+    expect(c.y, closeTo(280 / 400, 1e-9));
+    expect(CharacterCrop.fallback.squareIn(size), const Rect.fromLTWH(30, 80, 240, 240));
   });
 }

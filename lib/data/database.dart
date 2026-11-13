@@ -1,31 +1,56 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 /// Personnages proposés au premier lancement, dans l'ordre des onglets.
 const defaultCharacters = ['Rafayel', 'Xavier', 'Zayne', 'Sylus', 'Caleb'];
 
-const _version = 1;
+/// Version 2 : image et recadrage des personnages.
+const libraryDatabaseVersion = 2;
 
 /// Ouvre (ou crée) la base locale.
 ///
 /// [factory] et [path] sont réglables pour les tests ([inMemoryDatabasePath],
 /// avec [singleInstance] à `false` pour repartir d'une base vide).
+/// [version] ne sert qu'aux tests de migration.
 Future<Database> openLibraryDatabase({
   required DatabaseFactory factory,
   required String path,
   bool singleInstance = true,
+  @visibleForTesting int version = libraryDatabaseVersion,
 }) {
   return factory.openDatabase(
     path,
     options: OpenDatabaseOptions(
-      version: _version,
+      version: version,
       singleInstance: singleInstance,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
-      onCreate: _create,
+      // Une base neuve passe par le même chemin qu'une ancienne : schéma v1,
+      // puis chaque migration. Ainsi les deux ne peuvent pas diverger.
+      onCreate: (db, version) async {
+        await _createV1(db);
+        await _upgrade(db, 1, version);
+      },
+      onUpgrade: _upgrade,
     ),
   );
 }
 
-Future<void> _create(Database db, int version) async {
+/// Migrations successives, sans perte de données.
+Future<void> _upgrade(Database db, int from, int to) async {
+  if (from < 2 && to >= 2) {
+    // Chemin de l'image dans le stockage de l'app, et cercle de recadrage :
+    // centre (fraction de la largeur, de la hauteur) et diamètre (fraction
+    // du plus petit côté). NULL : pas encore recadré.
+    final batch = db.batch()
+      ..execute('ALTER TABLE characters ADD COLUMN image_path TEXT')
+      ..execute('ALTER TABLE characters ADD COLUMN crop_x REAL')
+      ..execute('ALTER TABLE characters ADD COLUMN crop_y REAL')
+      ..execute('ALTER TABLE characters ADD COLUMN crop_d REAL');
+    await batch.commit(noResult: true);
+  }
+}
+
+Future<void> _createV1(Database db) async {
   final batch = db.batch()
     ..execute('''
       CREATE TABLE characters (

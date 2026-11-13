@@ -16,14 +16,27 @@ class LibraryRepository extends ChangeNotifier {
 
   final Database _db;
 
-  /// Dossier où sont copiées les couvertures importées.
+  /// Dossier où sont copiées les couvertures importées et les images des
+  /// personnages.
   final Directory coversDir;
 
   // ── Lecture ───────────────────────────────────────────────────────────
 
   Future<List<Character>> characters() async {
-    final rows = await _db.query('characters', orderBy: 'position');
-    return [for (final r in rows) Character(id: r['id']! as int, name: r['name']! as String)];
+    final rows = await _db.query('characters', orderBy: 'position, id');
+    return [for (final r in rows) _character(r)];
+  }
+
+  Character _character(Map<String, Object?> r) {
+    final (x, y, d) = (r['crop_x'] as num?, r['crop_y'] as num?, r['crop_d'] as num?);
+    return Character(
+      id: r['id']! as int,
+      name: r['name']! as String,
+      imagePath: r['image_path'] as String?,
+      crop: x == null || y == null || d == null
+          ? null
+          : CharacterCrop(x: x.toDouble(), y: y.toDouble(), d: d.toDouble()),
+    );
   }
 
   /// Dossiers d'un personnage, avec leur nombre d'histoires et trois couvertures.
@@ -174,6 +187,65 @@ class LibraryRepository extends ChangeNotifier {
 
   // ── Écriture (mode admin) ─────────────────────────────────────────────
 
+  /// Ajoute un personnage à la fin des onglets.
+  ///
+  /// Lève [DuplicateCharacterException] si le nom existe déjà (sans tenir
+  /// compte des majuscules) et [ArgumentError] s'il est vide.
+  Future<int> addCharacter(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) throw ArgumentError.value(name, 'name', 'Nom vide');
+    final id = await _db.transaction((txn) async {
+      final existing = await txn.query(
+        'characters',
+        columns: ['id'],
+        where: 'name = ? COLLATE NOCASE',
+        whereArgs: [trimmed],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) throw DuplicateCharacterException(trimmed);
+      final next = await txn.rawQuery('SELECT COALESCE(MAX(position) + 1, 0) AS next FROM characters');
+      return txn.insert('characters', {'name': trimmed, 'position': next.single['next']! as int});
+    });
+    notifyListeners();
+    return id;
+  }
+
+  /// Copie l'image dans le stockage de l'app et l'associe au personnage.
+  ///
+  /// Le recadrage repart de [crop], ou du cadrage par défaut.
+  Future<void> setCharacterImage(int characterId, Uint8List bytes, String fileName, {CharacterCrop? crop}) async {
+    await coversDir.create(recursive: true);
+    final ext = p.extension(fileName).toLowerCase();
+    final file = File(p.join(
+      coversDir.path,
+      'character_${characterId}_${DateTime.now().millisecondsSinceEpoch}${ext.isEmpty ? '.png' : ext}',
+    ));
+    await file.writeAsBytes(bytes, flush: true);
+
+    final old = await _db.query('characters', columns: ['image_path'], where: 'id = ?', whereArgs: [characterId]);
+    await _db.update(
+      'characters',
+      {'image_path': file.path, ..._cropColumns(crop)},
+      where: 'id = ?',
+      whereArgs: [characterId],
+    );
+    final oldPath = old.isEmpty ? null : old.single['image_path'] as String?;
+    if (oldPath != null) await _deleteQuietly(oldPath);
+    notifyListeners();
+  }
+
+  /// Enregistre le cercle choisi sur l'image du personnage.
+  Future<void> setCharacterCrop(int characterId, CharacterCrop crop) async {
+    await _db.update('characters', _cropColumns(crop), where: 'id = ?', whereArgs: [characterId]);
+    notifyListeners();
+  }
+
+  Map<String, Object?> _cropColumns(CharacterCrop? crop) => {
+        'crop_x': crop?.x.clamp(0.0, 1.0),
+        'crop_y': crop?.y.clamp(0.0, 1.0),
+        'crop_d': crop?.d.clamp(0.0, 1.0),
+      };
+
   /// Dossier d'un personnage pour ce type, créé s'il n'existe pas encore.
   Future<int> folderFor(int characterId, FolderType type, {int? rarity}) async {
     final existing = await _db.query(
@@ -310,4 +382,14 @@ class LibraryRepository extends ChangeNotifier {
       // Déjà absent : rien à faire.
     }
   }
+}
+
+/// Un personnage de ce nom existe déjà.
+class DuplicateCharacterException implements Exception {
+  const DuplicateCharacterException(this.name);
+
+  final String name;
+
+  @override
+  String toString() => '« $name » existe déjà.';
 }

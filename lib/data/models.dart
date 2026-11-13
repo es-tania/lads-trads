@@ -3,11 +3,73 @@
 /// Personnage › Dossier › Histoire › Parties › Lignes.
 library;
 
+import 'dart:math' as math;
+import 'dart:ui' show Offset, Rect, Size;
+
 class Character {
-  const Character({required this.id, required this.name});
+  const Character({required this.id, required this.name, this.imagePath, this.crop});
 
   final int id;
   final String name;
+
+  /// Image du personnage dans le stockage de l'app.
+  final String? imagePath;
+
+  /// Cercle choisi sur l'image, ou `null` pour le cadrage par défaut.
+  final CharacterCrop? crop;
+
+  /// Initiale affichée quand il n'y a pas d'image.
+  String get initial {
+    final trimmed = name.trim();
+    return trimmed.isEmpty ? '?' : String.fromCharCode(trimmed.runes.first).toUpperCase();
+  }
+}
+
+/// Cercle de recadrage d'une image de personnage, en fractions de l'image.
+///
+/// [x] : centre en fraction de la largeur, [y] : en fraction de la hauteur,
+/// [d] : diamètre en fraction du plus petit côté. Tous entre 0 et 1.
+class CharacterCrop {
+  const CharacterCrop({required this.x, required this.y, required this.d});
+
+  /// Cadrage par défaut : centré, 80 % du plus petit côté.
+  static const fallback = CharacterCrop(x: 0.5, y: 0.5, d: 0.8);
+
+  final double x;
+  final double y;
+  final double d;
+
+  /// Même cercle, ramené à l'intérieur d'une image de taille [size].
+  CharacterCrop clampTo(Size size) {
+    if (size.isEmpty) return this;
+    final shortest = size.shortestSide;
+    final dd = d.clamp(0.05, 1.0);
+    final r = dd * shortest / 2;
+    return CharacterCrop(
+      x: (x * size.width).clamp(r, math.max(r, size.width - r)) / size.width,
+      y: (y * size.height).clamp(r, math.max(r, size.height - r)) / size.height,
+      d: dd,
+    );
+  }
+
+  /// Carré englobant le cercle, en pixels d'une image de taille [size].
+  Rect squareIn(Size size) {
+    final c = clampTo(size);
+    return Rect.fromCenter(
+      center: Offset(c.x * size.width, c.y * size.height),
+      width: c.d * size.shortestSide,
+      height: c.d * size.shortestSide,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) => other is CharacterCrop && other.x == x && other.y == y && other.d == d;
+
+  @override
+  int get hashCode => Object.hash(x, y, d);
+
+  @override
+  String toString() => 'CharacterCrop($x, $y, $d)';
 }
 
 enum FolderType {
