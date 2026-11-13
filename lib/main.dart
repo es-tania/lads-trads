@@ -1,16 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 
 import 'app.dart';
-import 'data/database.dart';
-import 'data/library_repository.dart';
+import 'data/device_library.dart';
 import 'data/overlay_settings.dart';
 import 'data/services.dart';
 import 'overlay/overlay_app.dart';
@@ -23,9 +17,7 @@ Future<void> main() async {
   SystemChrome.setSystemUIOverlayStyle(InkTheme.systemUi);
   _registerFontLicenses();
 
-  final docs = await getApplicationDocumentsDirectory();
-  final db = await openLibraryDatabase(factory: databaseFactory, path: p.join(docs.path, 'lads_trad.db'));
-  final library = LibraryRepository(db, coversDir: Directory(p.join(docs.path, 'covers')));
+  final library = await openDeviceLibrary();
   final settings = OverlaySettings(await SharedPreferences.getInstance());
 
   runApp(Services(library: library, settings: settings, child: const LadsTradApp()));

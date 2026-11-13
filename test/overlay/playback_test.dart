@@ -87,4 +87,36 @@ void main() {
     expect(p.current!.line!.speaker, 'Rafayel');
     expect(p.current!.line!.text, 'dommage');
   });
+
+  test('updateText corrige une ligne du tronc ou d\'une branche sans bouger la lecture', () {
+    final parts = [
+      PlayPart(title: 'KINDLED', items: [
+        PlayItem.line(const PlayLine(kind: 'dialogue', text: 'c', speaker: 'Rafayel', id: 1)),
+        PlayItem.choice([
+          const PlayOption(label: 'A', lines: [PlayLine(kind: 'dialogue', text: 'bravo', speaker: 'Rafayel', id: 2)]),
+        ]),
+      ]),
+    ];
+    final p = Playback(parts)
+      ..next()
+      ..pick(0);
+    expect(p.current!.line!.text, 'bravo');
+
+    p
+      ..updateText(2, 'Bravo !')
+      ..updateText(1, 'C.');
+    expect(p.current!.line!.text, 'Bravo !');
+    expect(p.current!.line!.speaker, 'Rafayel');
+    expect(p.branchLetter, 'A');
+    p.previous();
+    p.previous();
+    expect(p.current!.line!.text, 'C.');
+    expect(parts.first.items.first.line!.text, 'c', reason: 'la liste reçue n\'est pas modifiée');
+  });
+
+  test('l\'identifiant d\'une ligne passe dans le JSON envoyé à la fenêtre', () {
+    const l = PlayLine(kind: 'narration', text: 'x', id: 42);
+    expect(PlayLine.fromJson(l.toJson()).id, 42);
+    expect(PlayLine.fromJson(const PlayLine(kind: 'narration', text: 'x').toJson()).id, isNull);
+  });
 }

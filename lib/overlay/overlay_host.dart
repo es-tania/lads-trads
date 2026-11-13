@@ -3,6 +3,10 @@ import 'dart:ui' show Rect;
 
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
+import '../data/device_library.dart';
+import '../data/library_repository.dart';
+import 'overlay_messages.dart';
+
 /// Ce que la fenêtre flottante demande au système (taille, position,
 /// messages avec l'app). Une interface pour pouvoir la tester sans téléphone.
 ///
@@ -23,9 +27,18 @@ abstract class OverlayHost {
   /// sans cible de fermeture (la fenêtre ne se ferme pas par erreur).
   Future<void> setDragHandle(Rect area);
 
+  /// Laisse la fenêtre recevoir le clavier (pendant une modification), ou
+  /// le rend au jeu.
+  Future<void> setKeyboard(bool enabled);
+
+  /// Enregistre le nouveau texte d'une ligne dans la base du téléphone.
+  Future<void> saveLineText(int lineId, String text);
+
   /// Messages envoyés par l'app.
   Stream<Object?> get messages;
 
+  /// Envoie un message à l'app. Depuis la fenêtre, le Future ne se termine
+  /// jamais (le service Android ne renvoie pas de réponse) : ne pas l'attendre.
   Future<void> send(Object? message);
 }
 
@@ -68,6 +81,23 @@ class PluginOverlayHost implements OverlayHost {
         width: area.width,
         height: area.height,
       );
+
+  @override
+  Future<void> setKeyboard(bool enabled) =>
+      FlutterOverlayWindow.updateFlag(enabled ? OverlayFlag.focusPointer : OverlayFlag.defaultFlag);
+
+  LibraryRepository? _library;
+
+  /// La fenêtre écrit elle-même dans la base : l'app est peut-être fermée
+  /// pendant la lecture. Si elle est ouverte, elle est prévenue.
+  @override
+  Future<void> saveLineText(int lineId, String text) async {
+    final library = _library ??= await openDeviceLibrary();
+    await library.updateLineText(lineId, text);
+    // Sans attendre : le service ne répond jamais à un message de la
+    // fenêtre vers l'app (voir [send]).
+    unawaited(send(OverlayMessages.editedMessage(lineId: lineId, text: text.trim())));
+  }
 
   // Le flux du plugin ne peut être écouté qu'une fois : on le partage.
   @override

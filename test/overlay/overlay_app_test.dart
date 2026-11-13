@@ -30,6 +30,24 @@ class FakeHost implements OverlayHost {
     dragHandleCalls++;
   }
 
+  /// Clavier demandé (vrai) puis rendu au jeu (faux).
+  final keyboard = <bool>[];
+  final saved = <(int, String)>[];
+  Object? saveError;
+
+  /// Comme le vrai service quand rien ne répond : le Future ne finit jamais.
+  var saveHangs = false;
+
+  @override
+  Future<void> setKeyboard(bool enabled) async => keyboard.add(enabled);
+
+  @override
+  Future<void> saveLineText(int lineId, String text) async {
+    if (saveHangs) return Completer<void>().future;
+    if (saveError != null) throw saveError!;
+    saved.add((lineId, text));
+  }
+
   @override
   Stream<Object?> get messages => controller.stream;
 
@@ -55,12 +73,12 @@ class FakeHost implements OverlayHost {
   Future<({double width, double height})?> screenSize() async => (width: 390.0, height: 844.0);
 }
 
-PlayItem line(String text, [String? speaker]) =>
-    PlayItem.line(PlayLine(kind: speaker == null ? 'narration' : 'dialogue', text: text, speaker: speaker));
+PlayItem line(String text, [String? speaker, int? id]) =>
+    PlayItem.line(PlayLine(kind: speaker == null ? 'narration' : 'dialogue', text: text, speaker: speaker, id: id));
 
 final parts = [
   PlayPart(title: 'KINDLED', items: [
-    line('Les couleurs sont prêtes.', 'Rafayel'),
+    line('Les couleurs sont prêtes.', 'Rafayel', 10),
     PlayItem.choice([
       const PlayOption(label: 'Réussite !', lines: [PlayLine(kind: 'dialogue', text: 'Pas mal.', speaker: 'Rafayel')]),
       const PlayOption(label: 'Échec…', lines: [PlayLine(kind: 'dialogue', text: 'Dommage.', speaker: 'Rafayel')]),
@@ -69,13 +87,14 @@ final parts = [
   ]),
 ];
 
-Map<String, Object?> load({int id = 1}) => OverlayMessages.loadMessage(
+Map<String, Object?> load({int id = 1, bool admin = false}) => OverlayMessages.loadMessage(
       id: id,
       storyTitle: 'Into The Canvas',
       parts: parts,
       startPart: 0,
       opacity: 0.85,
       fontSize: 15,
+      admin: admin,
     );
 
 void main() {
@@ -207,5 +226,87 @@ void main() {
     expect(choice.options!.map((o) => o.label), ['A', 'B']);
     expect(choice.options!.map((o) => o.lines.single.text), ['Oui.', 'Non.']);
     expect(play.single.items.last.line!.text, 'Il part.');
+    final rows = await library.lines((await library.parts(id)).single.id);
+    expect(play.single.items.last.line!.id, rows.last.id, reason: 'pour la modifier pendant la lecture');
+    expect(choice.options!.first.lines.single.id, rows.firstWhere((r) => r.text == 'Oui.').id);
+  });
+
+  testWidgets('hors mode admin, pas de crayon', (tester) async {
+    await start(tester);
+    host.controller.add(load());
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Modifier la réplique'), findsNothing);
+  });
+
+  testWidgets('en mode admin, on corrige la réplique sans quitter la lecture', (tester) async {
+    await start(tester);
+    host.controller.add(load(admin: true));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    expect(host.keyboard, [true], reason: 'la fenêtre reçoit le clavier');
+    expect(find.text('Modifier · Rafayel'), findsOneWidget);
+    expect(tester.widget<EditableText>(find.byType(EditableText)).controller.text, 'Les couleurs sont prêtes.');
+    expect(find.bySemanticsLabel('Réplique suivante'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Réplique suivante')).flagsCollection.isEnabled,
+      isNot(true),
+      reason: 'pas de navigation pendant la modification',
+    );
+
+    await tester.enterText(find.byType(EditableText), '  Les couleurs sont prêtes, vas-y.  ');
+    await tester.pump();
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    expect(host.saved, [(10, 'Les couleurs sont prêtes, vas-y.')]);
+    expect(host.keyboard, [true, false], reason: 'le clavier est rendu au jeu');
+    expect(find.text('Les couleurs sont prêtes, vas-y.'), findsOneWidget);
+    expect(find.text('Kindled · L.001/003'), findsOneWidget, reason: 'même position de lecture');
+  });
+
+  testWidgets('Annuler ne change rien ; une erreur reste affichée', (tester) async {
+    await start(tester);
+    host.controller.add(load(admin: true));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText), 'Autre chose.');
+    await tester.tap(find.text('Annuler'));
+    await tester.pumpAndSettle();
+    expect(host.saved, isEmpty);
+    expect(host.keyboard, [true, false]);
+    expect(find.text('Les couleurs sont prêtes.'), findsOneWidget);
+
+    host.saveError = StateError('base indisponible');
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText), 'Autre chose.');
+    await tester.pump();
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Enregistrement impossible'), findsOneWidget);
+    expect(find.byType(EditableText), findsOneWidget, reason: 'le texte saisi n\'est pas perdu');
+  });
+
+  testWidgets('un enregistrement qui ne répond pas ne bloque pas la fenêtre', (tester) async {
+    await start(tester);
+    host.controller.add(load(admin: true));
+    await tester.pumpAndSettle();
+    host.saveHangs = true;
+
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText), 'Autre chose.');
+    await tester.pump();
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pump();
+    expect(find.text('Enregistrement…'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 9));
+    expect(find.text("L'enregistrement ne répond pas. Réessaie."), findsOneWidget);
+    expect(find.text('Enregistrer'), findsOneWidget, reason: 'on peut réessayer');
   });
 }

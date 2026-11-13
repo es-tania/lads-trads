@@ -7,7 +7,10 @@ library;
 
 /// Une réplique telle qu'envoyée à la fenêtre.
 class PlayLine {
-  const PlayLine({required this.kind, required this.text, this.speaker});
+  const PlayLine({required this.kind, required this.text, this.speaker, this.id});
+
+  /// Identifiant de la ligne en base, pour la modifier pendant la lecture.
+  final int? id;
 
   /// « dialogue », « thought » ou « narration ».
   final String kind;
@@ -17,10 +20,16 @@ class PlayLine {
   bool get isNarration => kind == 'narration';
   bool get isThought => kind == 'thought';
 
-  Map<String, Object?> toJson() => {'k': kind, 't': text, if (speaker != null) 's': speaker};
+  Map<String, Object?> toJson() => {'k': kind, 't': text, if (speaker != null) 's': speaker, if (id != null) 'i': id};
 
-  static PlayLine fromJson(Map<Object?, Object?> json) =>
-      PlayLine(kind: json['k']! as String, text: json['t']! as String, speaker: json['s'] as String?);
+  static PlayLine fromJson(Map<Object?, Object?> json) => PlayLine(
+        kind: json['k']! as String,
+        text: json['t']! as String,
+        speaker: json['s'] as String?,
+        id: json['i'] as int?,
+      );
+
+  PlayLine withText(String text) => PlayLine(kind: kind, text: text, speaker: speaker, id: id);
 }
 
 class PlayOption {
@@ -95,7 +104,9 @@ class PlayStep {
 /// avançant, on retrouve la même branche. « Changer de branche » ramène au
 /// choix et oublie la réponse.
 class Playback {
-  Playback(this.parts, {int part = 0}) : _part = part.clamp(0, parts.isEmpty ? 0 : parts.length - 1);
+  Playback(List<PlayPart> parts, {int part = 0})
+      : parts = List.of(parts),
+        _part = part.clamp(0, parts.isEmpty ? 0 : parts.length - 1);
 
   final List<PlayPart> parts;
   int _part;
@@ -175,6 +186,22 @@ class Playback {
     if (step == null || step.optionIndex == null) return;
     _picks.remove((_part, step.itemIndex));
     _index = steps.indexWhere((s) => s.isChoice && s.itemIndex == step.itemIndex);
+  }
+
+  /// Remplace le texte de la ligne [id] partout où elle apparaît, sans
+  /// changer la position de lecture.
+  void updateText(int id, String text) {
+    PlayLine fix(PlayLine l) => l.id == id ? l.withText(text) : l;
+    for (final (p, part) in parts.indexed) {
+      parts[p] = PlayPart(title: part.title, items: [
+        for (final item in part.items)
+          item.isChoice
+              ? PlayItem.choice([
+                  for (final o in item.options!) PlayOption(label: o.label, lines: [for (final l in o.lines) fix(l)]),
+                ])
+              : PlayItem.line(fix(item.line!)),
+      ]);
+    }
   }
 
   /// Va au début d'une partie.

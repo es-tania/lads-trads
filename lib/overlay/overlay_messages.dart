@@ -4,11 +4,16 @@ import 'playback.dart';
 ///
 /// App → fenêtre : [loadMessage] (une histoire à afficher), [settingsMessage].
 /// Fenêtre → app : [readyMessage], envoyé au démarrage de la fenêtre pour
-/// recevoir l'histoire si elle est arrivée trop tôt.
+/// recevoir l'histoire si elle est arrivée trop tôt ; [editedMessage], après
+/// une modification enregistrée pendant la lecture.
 abstract final class OverlayMessages {
   static const ready = 'ready';
   static const load = 'load';
   static const settings = 'settings';
+  static const edited = 'edited';
+
+  static Map<String, Object?> editedMessage({required int lineId, required String text}) =>
+      {'type': edited, 'lineId': lineId, 'text': text};
 
   static Map<String, Object?> readyMessage() => {'type': ready};
 
@@ -22,6 +27,7 @@ abstract final class OverlayMessages {
     required int startPart,
     required double opacity,
     required double fontSize,
+    bool admin = false,
   }) =>
       {
         'type': load,
@@ -33,6 +39,8 @@ abstract final class OverlayMessages {
         'startPart': startPart,
         'opacity': opacity,
         'fontSize': fontSize,
+        // Mode admin : la traductrice peut corriger une réplique en lisant.
+        'admin': admin,
       };
 
   static String? typeOf(Object? message) =>

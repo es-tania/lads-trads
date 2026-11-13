@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
@@ -20,7 +21,7 @@ Future<List<PlayPart>> loadPlayParts(LibraryRepository library, int storyId) asy
       if (row.parentId != null) children.putIfAbsent(row.parentId!, () => []).add(row);
     }
 
-    PlayLine toLine(LineRow r) => PlayLine(kind: r.kind.name, text: r.text, speaker: r.speaker);
+    PlayLine toLine(LineRow r) => PlayLine(kind: r.kind.name, text: r.text, speaker: r.speaker, id: r.id);
 
     final items = <PlayItem>[];
     for (final row in rows.where((r) => r.parentId == null)) {
@@ -67,14 +68,18 @@ class OverlayLauncher {
     required String storyTitle,
     required int partIndex,
     required double screenWidth,
+    bool admin = false,
   }) async {
     if (!await hasPermission()) return LaunchResult.permissionDenied;
 
     // La fenêtre peut répondre « prête » avant ou après notre envoi : on
     // garde le message pour le renvoyer à ce moment-là.
     _sub ??= FlutterOverlayWindow.overlayListener.listen((message) {
-      if (OverlayMessages.typeOf(message) == OverlayMessages.ready && _lastLoad != null) {
-        unawaited(FlutterOverlayWindow.shareData(_lastLoad));
+      switch (OverlayMessages.typeOf(message)) {
+        case OverlayMessages.ready when _lastLoad != null:
+          unawaited(FlutterOverlayWindow.shareData(_lastLoad));
+        case OverlayMessages.edited:
+          onEdited(message! as Map<Object?, Object?>);
       }
     });
 
@@ -86,6 +91,7 @@ class OverlayLauncher {
       startPart: partIndex,
       opacity: settings.opacity,
       fontSize: settings.textSize.fontSize,
+      admin: admin,
     );
 
     if (!await FlutterOverlayWindow.isActive()) {
@@ -115,6 +121,22 @@ class OverlayLauncher {
     }
     await FlutterOverlayWindow.shareData(_lastLoad);
     return LaunchResult.opened;
+  }
+
+  /// La fenêtre a enregistré une modification dans la base : les écrans de
+  /// l'app se rechargent, et l'histoire gardée pour un redémarrage de la
+  /// fenêtre prend le nouveau texte.
+  @visibleForTesting
+  void onEdited(Map<Object?, Object?> message) {
+    library.refresh();
+    final load = _lastLoad;
+    final id = message['lineId'] as int?;
+    final text = message['text'] as String?;
+    if (load == null || id == null || text == null) return;
+    final playback = Playback([
+      for (final p in load['parts']! as List<Object?>) PlayPart.fromJson(p! as Map<Object?, Object?>),
+    ])..updateText(id, text);
+    _lastLoad = {...load, 'parts': [for (final p in playback.parts) p.toJson()]};
   }
 
   /// Réglage changé dans l'app : la fenêtre ouverte le prend en compte tout de suite.

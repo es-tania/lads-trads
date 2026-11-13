@@ -63,6 +63,14 @@ class _OverlayScreenState extends State<OverlayScreen> {
   int _reportedHeight = 0;
   ({double x, double y})? _windowPosition;
 
+  /// Mode admin : un crayon permet de corriger la réplique affichée.
+  bool _admin = false;
+
+  /// Réplique en cours de modification, `null` en lecture.
+  PlayLine? _editing;
+  final _editText = TextEditingController();
+  String? _editError;
+  var _savingEdit = false;
 
   OverlayHost get host => widget.host;
   int get _windowWidth => (_screenWidth - 2 * _margin).round();
@@ -83,7 +91,8 @@ class _OverlayScreenState extends State<OverlayScreen> {
       });
     }
     await _declareGrip();
-    await host.send(OverlayMessages.readyMessage());
+    // Sans attendre la réponse, qui ne vient jamais (voir [OverlayHost.send]).
+    unawaited(host.send(OverlayMessages.readyMessage()));
   }
 
   /// La poignée est déplacée par le système, qui connaît la vraie position
@@ -103,6 +112,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
   @override
   void dispose() {
     _sub?.cancel();
+    _editText.dispose();
     super.dispose();
   }
 
@@ -115,9 +125,11 @@ class _OverlayScreenState extends State<OverlayScreen> {
         final parts = [
           for (final p in message['parts']! as List<Object?>) PlayPart.fromJson(p! as Map<Object?, Object?>),
         ];
+        if (_editing != null) unawaited(_stopEditing());
         setState(() {
           _loadedId = id;
           _playback = Playback(parts, part: (message['startPart'] as int?) ?? 0);
+          _admin = message['admin'] == true;
           _applySettings(message);
           _reportedHeight = 0;
         });
@@ -142,7 +154,54 @@ class _OverlayScreenState extends State<OverlayScreen> {
     unawaited(host.resize(_windowWidth, h, drag: false).then((_) => _declareGrip()));
   }
 
+  // ── Modification pendant la lecture (mode admin) ──────────────────────
+
+  Future<void> _startEditing(PlayLine line) async {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _editing = line;
+      _editError = null;
+      _editText.text = line.text;
+    });
+    // Le temps de la modification, la fenêtre reçoit le clavier.
+    await host.setKeyboard(true);
+  }
+
+  Future<void> _stopEditing() async {
+    setState(() {
+      _editing = null;
+      _savingEdit = false;
+    });
+    await host.setKeyboard(false);
+  }
+
+  Future<void> _saveEditing() async {
+    final line = _editing;
+    final text = _editText.text.trim();
+    if (line?.id == null || text.isEmpty || _savingEdit) return;
+    setState(() {
+      _savingEdit = true;
+      _editError = null;
+    });
+    try {
+      // Une écriture ne prend qu'un instant : au-delà, on le dit plutôt que
+      // de laisser « Enregistrement… » affiché indéfiniment.
+      await host.saveLineText(line!.id!, text).timeout(const Duration(seconds: 8));
+      _playback?.updateText(line.id!, text);
+      await _stopEditing();
+    } on Object catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _savingEdit = false;
+        _editError = e is TimeoutException
+            ? "L'enregistrement ne répond pas. Réessaie."
+            : 'Enregistrement impossible : $e';
+      });
+    }
+  }
+
   Future<void> _minimize() async {
+    if (_editing != null) await _stopEditing();
     HapticFeedback.selectionClick();
     _windowPosition = await host.position();
     setState(() => _bubble = true);
@@ -166,6 +225,8 @@ class _OverlayScreenState extends State<OverlayScreen> {
     if (_bubble) return _Bubble(playback: _playback, onTap: _expand);
 
     final playback = _playback;
+    final editing = _editing;
+    final reading = editing == null;
     return Align(
       alignment: Alignment.topLeft,
       child: OverflowBox(
@@ -179,16 +240,27 @@ class _OverlayScreenState extends State<OverlayScreen> {
             child: _Window(
               opacity: _opacity,
               onMinimize: _minimize,
-              onPrevious: playback != null && playback.canGoBack ? () => setState(playback.previous) : null,
-              onNext: playback != null && playback.canGoForward ? () => setState(playback.next) : null,
+              onPrevious: reading && playback != null && playback.canGoBack ? () => setState(playback.previous) : null,
+              onNext: reading && playback != null && playback.canGoForward ? () => setState(playback.next) : null,
               child: playback == null || playback.isEmpty
                   ? const _Waiting()
-                  : _StepView(
-                      playback: playback,
-                      fontSize: _fontSize,
-                      onPick: (i) => setState(() => playback.pick(i)),
-                      onChangeBranch: () => setState(playback.changeBranch),
-                    ),
+                  : !reading
+                      ? _EditView(
+                          line: editing,
+                          controller: _editText,
+                          fontSize: _fontSize,
+                          error: _editError,
+                          saving: _savingEdit,
+                          onCancel: _stopEditing,
+                          onSave: _saveEditing,
+                        )
+                      : _StepView(
+                          playback: playback,
+                          fontSize: _fontSize,
+                          onPick: (i) => setState(() => playback.pick(i)),
+                          onChangeBranch: () => setState(playback.changeBranch),
+                          onEdit: _admin ? _startEditing : null,
+                        ),
             ),
           ),
         ),
@@ -343,12 +415,21 @@ class _Waiting extends StatelessWidget {
 
 /// Contenu central : une réplique, ou un choix à faire.
 class _StepView extends StatelessWidget {
-  const _StepView({required this.playback, required this.fontSize, required this.onPick, required this.onChangeBranch});
+  const _StepView({
+    required this.playback,
+    required this.fontSize,
+    required this.onPick,
+    required this.onChangeBranch,
+    this.onEdit,
+  });
 
   final Playback playback;
   final double fontSize;
   final ValueChanged<int> onPick;
   final VoidCallback onChangeBranch;
+
+  /// Mode admin : corriger la réplique affichée.
+  final ValueChanged<PlayLine>? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -389,6 +470,19 @@ class _StepView extends StatelessWidget {
                   child: Text('Changer de branche', style: TextStyle(fontSize: 12, height: 16 / 12, color: InkColors.accent)),
                 ),
               ),
+            if (onEdit != null && !step.isChoice && step.line!.id != null)
+              Semantics(
+                button: true,
+                label: 'Modifier la réplique',
+                child: GestureDetector(
+                  onTap: () => onEdit!(step.line!),
+                  behavior: HitTestBehavior.opaque,
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 12, right: 2),
+                    child: Icon(Icons.edit_outlined, size: 14, color: InkColors.textFaint),
+                  ),
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 2),
@@ -406,6 +500,89 @@ class _StepView extends StatelessWidget {
     if (letters.isEmpty || letters != letters.toUpperCase()) return title;
     final lower = title.toLowerCase();
     return lower[0].toUpperCase() + lower.substring(1);
+  }
+}
+
+/// Correction de la réplique affichée, sans quitter le jeu.
+class _EditView extends StatelessWidget {
+  const _EditView({
+    required this.line,
+    required this.controller,
+    required this.fontSize,
+    required this.error,
+    required this.saving,
+    required this.onCancel,
+    required this.onSave,
+  });
+
+  final PlayLine line;
+  final TextEditingController controller;
+  final double fontSize;
+  final String? error;
+  final bool saving;
+  final VoidCallback onCancel;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          line.speaker == null ? 'Modifier la narration' : 'Modifier · ${line.speaker}',
+          style: TextStyle(
+            fontSize: 12,
+            height: 16 / 12,
+            fontWeight: FontWeight.w500,
+            color: line.speaker == null ? InkColors.textMuted : InkColors.forSpeaker(line.speaker!),
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 5,
+          textCapitalization: TextCapitalization.sentences,
+          style: InkText.dialogue.copyWith(fontSize: fontSize),
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.all(8),
+            fillColor: InkColors.surface,
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 4),
+          Text(error!, style: const TextStyle(fontSize: 12, color: Color(0xFFF28B82))),
+        ],
+        const SizedBox(height: 6),
+        // Wrap : les deux boutons passent à la ligne si la fenêtre est étroite.
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 4,
+          children: [
+            TextButton(
+              onPressed: saving ? null : onCancel,
+              style: TextButton.styleFrom(minimumSize: const Size(44, 32), padding: const EdgeInsets.symmetric(horizontal: 10)),
+              child: const Text('Annuler'),
+            ),
+            ListenableBuilder(
+              listenable: controller,
+              builder: (context, _) => FilledButton(
+                onPressed: saving || controller.text.trim().isEmpty ? null : onSave,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(44, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+                child: Text(saving ? 'Enregistrement…' : 'Enregistrer'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 
