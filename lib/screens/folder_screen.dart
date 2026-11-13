@@ -7,6 +7,7 @@ import '../state/admin_mode.dart';
 import '../theme/ink.dart';
 import '../widgets/cover.dart';
 import '../widgets/ink_widgets.dart';
+import 'admin/folder_sheet.dart';
 
 class FolderScreen extends StatelessWidget {
   const FolderScreen({super.key, required this.folderId});
@@ -36,7 +37,7 @@ class FolderScreen extends StatelessWidget {
                       if (admin)
                         IconButton(
                           tooltip: 'Modifier le dossier',
-                          onPressed: () => Navigator.pushNamed(context, Routes.newFolder, arguments: folder.name),
+                          onPressed: () => showFolderSheet(context, characters: characters, folder: folder),
                           icon: const Icon(Icons.more_horiz_rounded, size: 20),
                         ),
                     ],

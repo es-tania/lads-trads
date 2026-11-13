@@ -5,7 +5,6 @@ import 'screens/admin/edit_line_screen.dart';
 import 'screens/admin/editor_screen.dart';
 import 'screens/admin/export_screen.dart';
 import 'screens/admin/import_screen.dart';
-import 'screens/admin/new_folder_screen.dart';
 import 'screens/admin/story_admin_screen.dart';
 import 'screens/folder_screen.dart';
 import 'screens/library_screen.dart';
@@ -25,14 +24,13 @@ abstract final class Routes {
 
   static const import = '/admin/import';
   static const storyAdmin = '/admin/fiche';
-  static const newFolder = '/admin/nouveau-dossier';
   static const editor = '/admin/editeur';
   static const editLine = '/admin/replique';
   static const export = '/admin/export';
   static const characters = '/admin/personnages';
 
   /// Écrans qui s'ouvrent comme une fenêtre (croix en haut à gauche).
-  static const _modals = {newFolder, editLine, export};
+  static const _modals = {editLine, export};
 }
 
 class LadsTradApp extends StatelessWidget {
@@ -59,7 +57,6 @@ class LadsTradApp extends StatelessWidget {
       Routes.story => StoryScreen(storyId: arg! as int),
       Routes.import => ImportScreen(characterId: arg as int?),
       Routes.storyAdmin => StoryAdminScreen(storyId: arg! as int),
-      Routes.newFolder => NewFolderScreen(editing: arg as String?),
       Routes.editor => const EditorScreen(),
       Routes.editLine => const EditLineScreen(),
       Routes.export => const ExportScreen(),

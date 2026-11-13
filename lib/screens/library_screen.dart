@@ -9,6 +9,7 @@ import '../theme/ink.dart';
 import '../widgets/character_avatar.dart';
 import '../widgets/cover.dart';
 import '../widgets/ink_widgets.dart';
+import 'admin/folder_sheet.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -50,7 +51,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   SizedBox(height: admin ? 16 : 24),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _CharacterContent(character: current, admin: admin),
+                    child: _CharacterContent(character: current, characters: characters, admin: admin),
                   ),
                 ],
               );
@@ -245,9 +246,10 @@ class _EditCharactersLink extends StatelessWidget {
 
 /// Histoires récentes et dossiers du personnage choisi.
 class _CharacterContent extends StatelessWidget {
-  const _CharacterContent({required this.character, required this.admin});
+  const _CharacterContent({required this.character, required this.characters, required this.admin});
 
   final Character character;
+  final List<Character> characters;
   final bool admin;
 
   @override
@@ -269,7 +271,7 @@ class _CharacterContent extends StatelessWidget {
               'Dossiers de ${character.name}',
               trailing: admin
                   ? TextButton.icon(
-                      onPressed: () => Navigator.pushNamed(context, Routes.newFolder),
+                      onPressed: () => showFolderSheet(context, characters: characters, characterId: character.id),
                       icon: const Icon(Icons.add_rounded, size: 16),
                       label: const Text('Nouveau dossier'),
                     )
