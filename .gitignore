@@ -48,3 +48,5 @@ app.*.map.json
 .widget_preview/
 
 .claude
+# Histoires réelles utilisées par les tests du parseur : elles restent en local.
+/test/fixtures/
