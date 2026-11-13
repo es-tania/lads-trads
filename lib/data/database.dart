@@ -5,7 +5,8 @@ import 'package:sqflite/sqflite.dart';
 const defaultCharacters = ['Rafayel', 'Xavier', 'Zayne', 'Sylus', 'Caleb'];
 
 /// Version 2 : image et recadrage des personnages.
-const libraryDatabaseVersion = 2;
+/// Version 3 : note de traduction sur chaque ligne.
+const libraryDatabaseVersion = 3;
 
 /// Ouvre (ou crée) la base locale.
 ///
@@ -47,6 +48,10 @@ Future<void> _upgrade(Database db, int from, int to) async {
       ..execute('ALTER TABLE characters ADD COLUMN crop_y REAL')
       ..execute('ALTER TABLE characters ADD COLUMN crop_d REAL');
     await batch.commit(noResult: true);
+  }
+  if (from < 3 && to >= 3) {
+    // Note de la traductrice, visible seulement en mode admin.
+    await db.execute('ALTER TABLE lines ADD COLUMN note TEXT');
   }
 }
 

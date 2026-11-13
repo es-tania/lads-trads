@@ -207,6 +207,7 @@ class LineRow {
     this.speakerEn,
     this.parentId,
     this.paragraph,
+    this.note,
   });
 
   final int id;
@@ -221,6 +222,10 @@ class LineRow {
   /// Choix d'une option, ou option d'une réplique de branche.
   final int? parentId;
 
-  /// Numéro du paragraphe dans le FR.docx d'origine.
+  /// Numéro du paragraphe dans le FR.docx d'origine (`null` pour une ligne
+  /// ajoutée dans l'éditeur).
   final int? paragraph;
+
+  /// Note de traduction, visible seulement en mode admin.
+  final String? note;
 }

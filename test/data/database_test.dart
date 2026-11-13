@@ -14,7 +14,7 @@ void main() {
   setUp(() async => dir = await Directory.systemTemp.createTemp('lads_db'));
   tearDown(() => dir.delete(recursive: true));
 
-  test('la migration v1 → v2 garde les données et ajoute image et recadrage', () async {
+  test('les migrations depuis la v1 gardent les données (image, recadrage, note)', () async {
     final path = p.join(dir.path, 'lads_trad.db');
 
     // Base telle qu'elle existe sur le téléphone avant l'étape 5a.
@@ -36,6 +36,8 @@ void main() {
     expect(await v2.getVersion(), libraryDatabaseVersion);
     final columns = (await v2.rawQuery('PRAGMA table_info(characters)')).map((c) => c['name']);
     expect(columns, containsAll(['image_path', 'crop_x', 'crop_y', 'crop_d']));
+    final lineColumns = (await v2.rawQuery('PRAGMA table_info(lines)')).map((c) => c['name']);
+    expect(lineColumns, contains('note'));
 
     final repo = LibraryRepository(v2, coversDir: Directory(p.join(dir.path, 'covers')));
     final characters = await repo.characters();
