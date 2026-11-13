@@ -11,6 +11,9 @@ dependencies:
   file_picker: ^13.3.3
   flutter:
     sdk: flutter
+  # Copie locale modifiée : glissement natif depuis la poignée (voir packages/).
+  flutter_overlay_window:
+    path: packages/flutter_overlay_window
   material_ui: ^1.1.0
   path: ^1.9.1
   path_provider: ^2.1.6

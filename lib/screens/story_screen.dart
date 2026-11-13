@@ -14,8 +14,43 @@ class StoryScreen extends StatelessWidget {
 
   final int storyId;
 
-  void _launch(BuildContext context, Part part) =>
-      showStepSnack(context, 'La fenêtre flottante arrive à l\'étape 4 (${part.displayTitle}).');
+  Future<void> _launch(BuildContext context, Story story, Part part) async {
+    final launcher = context.overlayLauncher;
+    var granted = await launcher.hasPermission();
+    if (!granted) {
+      if (!context.mounted) return;
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: InkColors.raised,
+          title: const Text('Afficher par-dessus le jeu'),
+          content: const Text(
+            'Pour afficher la traduction au-dessus de Love and Deepspace, Android doit autoriser '
+            'LADS Trad à s\'afficher par-dessus les autres applis.\n\n'
+            'Dans l\'écran qui s\'ouvre, active « LADS Trad », puis reviens ici.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Plus tard')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Autoriser')),
+          ],
+        ),
+      );
+      if (go != true) return;
+      granted = await launcher.requestPermission();
+    }
+    if (!context.mounted) return;
+    if (!granted) {
+      showStepSnack(context, 'Sans cette autorisation, la traduction ne peut pas s\'afficher sur le jeu.');
+      return;
+    }
+    await launcher.launch(
+      storyId: story.id,
+      storyTitle: story.title,
+      partIndex: part.position,
+      screenWidth: MediaQuery.sizeOf(context).width,
+    );
+    if (context.mounted) showStepSnack(context, '${part.displayTitle} est prête : passe sur le jeu.');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +99,7 @@ class StoryScreen extends StatelessWidget {
                                   child: Text((part.position + 1).toString().padLeft(2, '0'), style: InkText.count),
                                 ),
                                 trailing: const Icon(Icons.play_arrow_outlined, size: 18, color: InkColors.textMuted),
-                                onTap: () => _launch(context, part),
+                                onTap: () => _launch(context, story, part),
                               ),
                           ],
                         ),
@@ -83,7 +118,7 @@ class StoryScreen extends StatelessWidget {
               : InkBottomAction(
                   label: 'Lancer depuis le début',
                   icon: Icons.play_arrow_rounded,
-                  onPressed: () => _launch(context, parts.first),
+                  onPressed: () => _launch(context, story, parts.first),
                 ),
         );
       },

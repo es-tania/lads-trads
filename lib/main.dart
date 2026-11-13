@@ -13,6 +13,8 @@ import 'data/database.dart';
 import 'data/library_repository.dart';
 import 'data/overlay_settings.dart';
 import 'data/services.dart';
+import 'overlay/overlay_app.dart';
+import 'overlay/overlay_host.dart';
 import 'theme/ink.dart';
 
 Future<void> main() async {
@@ -27,6 +29,14 @@ Future<void> main() async {
   final settings = OverlaySettings(await SharedPreferences.getInstance());
 
   runApp(Services(library: library, settings: settings, child: const LadsTradApp()));
+}
+
+/// Point d'entrée de la fenêtre flottante, lancé par le système dans un
+/// moteur Flutter séparé (le nom « overlayMain » est attendu par le plugin).
+@pragma('vm:entry-point')
+void overlayMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(OverlayApp(host: PluginOverlayHost()));
 }
 
 /// Les trois polices sont sous licence SIL OFL : on les déclare dans

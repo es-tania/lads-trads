@@ -1,14 +1,19 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../overlay/overlay_launcher.dart';
 import 'library_repository.dart';
 import 'overlay_settings.dart';
 
 /// Rend la bibliothèque et les réglages accessibles à tous les écrans.
 class Services extends InheritedWidget {
-  const Services({super.key, required this.library, required this.settings, required super.child});
+  Services({super.key, required this.library, required this.settings, OverlayLauncher? launcher, required super.child})
+      : launcher = launcher ?? OverlayLauncher(library: library, settings: settings);
 
   final LibraryRepository library;
   final OverlaySettings settings;
+
+  /// Ouvre la fenêtre flottante au-dessus du jeu.
+  final OverlayLauncher launcher;
 
   static Services of(BuildContext context) {
     final services = context.dependOnInheritedWidgetOfExactType<Services>();
@@ -24,6 +29,7 @@ class Services extends InheritedWidget {
 extension ServicesContext on BuildContext {
   LibraryRepository get library => Services.of(this).library;
   OverlaySettings get overlaySettings => Services.of(this).settings;
+  OverlayLauncher get overlayLauncher => Services.of(this).launcher;
 }
 
 /// Charge une donnée de la bibliothèque et la recharge à chaque modification.
