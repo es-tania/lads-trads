@@ -220,4 +220,102 @@ void main() {
     // Rayon : 0,8 × 300 / 2 = 120 px sur 400 de haut : le cercle bute en haut.
     expect(crop.y, closeTo(120 / 400, 1e-9));
   });
+
+  Future<void> enterAdmin(WidgetTester tester) async {
+    await tester.longPress(find.text('Bibliothèque'));
+    await _settle(tester);
+  }
+
+  testWidgets('On crée un dossier, on le renomme puis on le supprime', (tester) async {
+    await start(tester);
+    await enterAdmin(tester);
+    await tester.tap(find.text('Nouveau dossier'));
+    await _settle(tester);
+    expect(find.text('Créer le dossier'), findsOneWidget);
+    expect(find.text('Rareté'), findsOneWidget);
+
+    // « Memoria 5★ » existe déjà pour Rafayel.
+    await tester.tap(find.text('Créer le dossier'));
+    await _settle(tester);
+    expect(find.textContaining('existe déjà'), findsOneWidget);
+
+    await tester.tap(find.text('Myths'));
+    await tester.pump();
+    expect(find.text('Rareté'), findsNothing);
+    await tester.tap(find.text('Créer le dossier'));
+    await _settle(tester);
+    expect(find.text('Ce dossier est vide.'), findsOneWidget);
+    expect(find.text('Myths'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Modifier le dossier'));
+    await _settle(tester);
+    expect(find.text('Modifier le dossier'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Myths'), 'Mythes');
+    await tester.pump();
+    await tester.tap(find.text('Enregistrer'));
+    await _settle(tester);
+    expect(find.text('Mythes'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Modifier le dossier'));
+    await _settle(tester);
+    await tester.tap(find.text('Supprimer le dossier'));
+    await _settle(tester);
+    await tester.tap(find.text('Supprimer'));
+    await _settle(tester);
+    expect(find.text('Bibliothèque'), findsOneWidget);
+    expect(find.text('Mythes'), findsNothing);
+  });
+
+  testWidgets('Un dossier qui contient des histoires ne se supprime pas', (tester) async {
+    await start(tester);
+    await enterAdmin(tester);
+    await tester.tap(find.text('Memoria 5★'));
+    await _settle(tester);
+    await tester.tap(find.byTooltip('Modifier le dossier'));
+    await _settle(tester);
+    await tester.tap(find.text('Supprimer le dossier'));
+    await _settle(tester);
+    expect(find.textContaining('contient 1 histoire'), findsOneWidget);
+  });
+
+  testWidgets("La fiche change le titre et déplace l'histoire chez un autre personnage", (tester) async {
+    await start(tester);
+    await enterAdmin(tester);
+    await tester.tap(find.text('Into The Canvas'));
+    await _settle(tester);
+    await tester.tap(find.text('Modifier'));
+    await _settle(tester);
+    expect(find.text("Fiche de l'histoire"), findsOneWidget);
+    expect(find.text('2 parties · 2'), findsOneWidget);
+    expect(find.text('Type Memoria, repris du dossier'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Enregistrer')).onPressed, isNull);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Into The Canvas'), 'Dans la toile');
+    await tester.pump();
+    await tester.tap(find.text('Rafayel'));
+    await _settle(tester);
+    await tester.tap(find.text('Xavier').last);
+    await _settle(tester);
+    expect(find.text('Memoria 5★ (nouveau)'), findsOneWidget, reason: 'même type, à créer chez Xavier');
+
+    await tester.tap(find.text('Enregistrer'));
+    await _settle(tester);
+    expect(find.text('Dans la toile'), findsOneWidget);
+    expect(find.text('Xavier · Memoria 5★'), findsOneWidget);
+  });
+
+  testWidgets('« Remplacer par un .docx » garde le classement', (tester) async {
+    await start(tester);
+    await enterAdmin(tester);
+    await tester.tap(find.text('Into The Canvas'));
+    await _settle(tester);
+    await tester.tap(find.text('Modifier'));
+    await _settle(tester);
+    await tester.tap(find.text('Remplacer par un .docx'));
+    await _settle(tester);
+    expect(find.text('Remplacer le contenu'), findsOneWidget);
+    expect(find.text('Couverture'), findsNothing);
+    expect(find.text('Classement'), findsNothing);
+    expect(find.textContaining('Le titre, le dossier et la couverture sont gardés'), findsOneWidget);
+  });
 }

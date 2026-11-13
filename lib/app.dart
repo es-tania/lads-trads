@@ -23,6 +23,7 @@ abstract final class Routes {
   static const story = '/histoire';
 
   static const import = '/admin/import';
+  static const replaceContent = '/admin/remplacer';
   static const storyAdmin = '/admin/fiche';
   static const editor = '/admin/editeur';
   static const editLine = '/admin/replique';
@@ -56,6 +57,7 @@ class LadsTradApp extends StatelessWidget {
       Routes.folder => FolderScreen(folderId: arg! as int),
       Routes.story => StoryScreen(storyId: arg! as int),
       Routes.import => ImportScreen(characterId: arg as int?),
+      Routes.replaceContent => ImportScreen(replaceStoryId: arg! as int),
       Routes.storyAdmin => StoryAdminScreen(storyId: arg! as int),
       Routes.editor => const EditorScreen(),
       Routes.editLine => const EditLineScreen(),
