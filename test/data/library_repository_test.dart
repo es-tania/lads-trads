@@ -183,4 +183,77 @@ void main() {
     expect(c.y, closeTo(280 / 400, 1e-9));
     expect(CharacterCrop.fallback.squareIn(size), const Rect.fromLTWH(30, 80, 240, 240));
   });
+
+  Future<int> storyIn(int folderId, {Uint8List? cover}) => repo.saveStory(
+        folderId: folderId,
+        title: 'Into The Canvas',
+        parsed: parseStoryParagraphs(fr: [p('FIN', h1: true), p('Il part.')], en: [p('END', h1: true), p('He leaves.')]),
+        coverBytes: cover,
+        coverName: cover == null ? null : 'c.png',
+      );
+
+  test("modifie le titre et le dossier d'une histoire, retire sa couverture", () async {
+    final [rafayel, xavier, ...] = await repo.characters();
+    final from = await repo.folderFor(rafayel.id, FolderType.memoria, rarity: 5);
+    final to = await repo.folderFor(xavier.id, FolderType.myths);
+    final id = await storyIn(from, cover: Uint8List.fromList([1]));
+    final cover = (await repo.story(id))!.coverPath!;
+
+    await repo.updateStory(id, title: '  Dans la toile ', folderId: to);
+    await repo.removeCover(id);
+
+    final story = (await repo.story(id))!;
+    expect(story.title, 'Dans la toile');
+    expect(story.characterName, 'Xavier');
+    expect(story.folderName, 'Myths');
+    expect(story.coverPath, isNull);
+    expect(File(cover).existsSync(), isFalse);
+    await expectLater(repo.updateStory(id, title: ' ', folderId: to), throwsArgumentError);
+  });
+
+  test('remplace le contenu en gardant titre, dossier et couverture', () async {
+    final rafayel = (await repo.characters()).first.id;
+    final folder = await repo.folderFor(rafayel, FolderType.memoria, rarity: 5);
+    final id = await storyIn(folder, cover: Uint8List.fromList([1]));
+    final before = (await repo.story(id))!;
+
+    await repo.replaceStoryContent(
+      id,
+      parseStoryParagraphs(
+        fr: [p('UN', h1: true), p('A.'), p('DEUX', h1: true), p('B.'), p('C.')],
+        en: [p('ONE', h1: true), p('A.'), p('TWO', h1: true), p('B.'), p('C.')],
+      ),
+    );
+
+    final after = (await repo.story(id))!;
+    expect(after.title, before.title);
+    expect(after.folderId, folder);
+    expect(after.coverPath, before.coverPath);
+    // Les anciennes répliques ne restent pas : chaque partie a exactement les nouvelles.
+    expect((await repo.parts(id)).map((x) => (x.displayTitle, x.lineCount)), [('Un', 1), ('Deux', 2)]);
+  });
+
+  test("modifie un dossier, refuse un nom en double, ne supprime qu'un dossier vide", () async {
+    final [rafayel, xavier, ...] = await repo.characters();
+    final five = await repo.folderFor(rafayel.id, FolderType.memoria, rarity: 5);
+    final other = await repo.createFolder(rafayel.id, ' À relire ', FolderType.other);
+    expect((await repo.folder(other))!.name, 'À relire');
+    expect(await repo.folderNameTaken(rafayel.id, 'à RELIRE'), isTrue);
+    expect(await repo.folderNameTaken(rafayel.id, 'à relire', exceptId: other), isFalse);
+    expect(await repo.folderNameTaken(xavier.id, 'À relire'), isFalse);
+
+    await expectLater(
+      repo.updateFolder(other, characterId: rafayel.id, name: 'memoria 5★', type: FolderType.other),
+      throwsA(isA<DuplicateFolderException>()),
+    );
+    await repo.updateFolder(other, characterId: xavier.id, name: 'Favoris', type: FolderType.memoria, rarity: 4);
+    final moved = (await repo.folder(other))!;
+    expect((moved.characterId, moved.name, moved.type, moved.rarity), (xavier.id, 'Favoris', FolderType.memoria, 4));
+
+    await storyIn(five);
+    await expectLater(repo.deleteFolder(five), throwsStateError);
+    expect(await repo.folder(five), isNotNull);
+    await repo.deleteFolder(other);
+    expect(await repo.folder(other), isNull);
+  });
 }

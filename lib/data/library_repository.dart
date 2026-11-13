@@ -195,14 +195,11 @@ class LibraryRepository extends ChangeNotifier {
     final trimmed = name.trim();
     if (trimmed.isEmpty) throw ArgumentError.value(name, 'name', 'Nom vide');
     final id = await _db.transaction((txn) async {
-      final existing = await txn.query(
-        'characters',
-        columns: ['id'],
-        where: 'name = ? COLLATE NOCASE',
-        whereArgs: [trimmed],
-        limit: 1,
-      );
-      if (existing.isNotEmpty) throw DuplicateCharacterException(trimmed);
+      // Comparaison en Dart : NOCASE de SQLite ignore les accents.
+      final names = await txn.query('characters', columns: ['name']);
+      if (names.any((r) => (r['name']! as String).toLowerCase() == trimmed.toLowerCase())) {
+        throw DuplicateCharacterException(trimmed);
+      }
       final next = await txn.rawQuery('SELECT COALESCE(MAX(position) + 1, 0) AS next FROM characters');
       return txn.insert('characters', {'name': trimmed, 'position': next.single['next']! as int});
     });
@@ -262,13 +259,88 @@ class LibraryRepository extends ChangeNotifier {
   Future<int> createFolder(int characterId, String name, FolderType type, {int? rarity}) async {
     final id = await _db.insert('folders', {
       'character_id': characterId,
-      'name': name,
+      'name': name.trim(),
       'type': type.code,
       'rarity': type == FolderType.memoria ? rarity : null,
       'created_at': DateTime.now().millisecondsSinceEpoch,
     });
     notifyListeners();
     return id;
+  }
+
+  /// Modifie un dossier. Lève [DuplicateFolderException] si le personnage a
+  /// déjà un autre dossier de ce nom.
+  Future<void> updateFolder(int folderId, {required int characterId, required String name, required FolderType type, int? rarity}) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) throw ArgumentError.value(name, 'name', 'Nom vide');
+    if (await folderNameTaken(characterId, trimmed, exceptId: folderId)) throw DuplicateFolderException(trimmed);
+    await _db.update(
+      'folders',
+      {
+        'character_id': characterId,
+        'name': trimmed,
+        'type': type.code,
+        'rarity': type == FolderType.memoria ? rarity : null,
+      },
+      where: 'id = ?',
+      whereArgs: [folderId],
+    );
+    notifyListeners();
+  }
+
+  /// Le personnage a-t-il déjà un dossier de ce nom (majuscules ignorées) ?
+  Future<bool> folderNameTaken(int characterId, String name, {int? exceptId}) async {
+    // Comparaison en Dart : NOCASE de SQLite ignore les accents (« À » ≠ « à »).
+    final wanted = name.trim().toLowerCase();
+    final rows = await _db.query('folders', columns: ['id', 'name'], where: 'character_id = ?', whereArgs: [characterId]);
+    return rows.any((r) => r['id'] != exceptId && (r['name']! as String).trim().toLowerCase() == wanted);
+  }
+
+  /// Supprime un dossier vide. Lève [StateError] s'il contient des histoires :
+  /// on ne les efface jamais par ce biais.
+  Future<void> deleteFolder(int folderId) async {
+    final count = Sqflite.firstIntValue(
+      await _db.rawQuery('SELECT COUNT(*) FROM stories WHERE folder_id = ?', [folderId]),
+    );
+    if ((count ?? 0) > 0) throw StateError('Le dossier contient encore $count histoire(s).');
+    await _db.delete('folders', where: 'id = ?', whereArgs: [folderId]);
+    notifyListeners();
+  }
+
+  /// Change le titre et le dossier d'une histoire.
+  Future<void> updateStory(int storyId, {required String title, required int folderId}) async {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) throw ArgumentError.value(title, 'title', 'Titre vide');
+    await _db.update('stories', {'title': trimmed, 'folder_id': folderId}, where: 'id = ?', whereArgs: [storyId]);
+    notifyListeners();
+  }
+
+  /// Retire la couverture d'une histoire et efface le fichier.
+  Future<void> removeCover(int storyId, {bool notify = true}) async {
+    final old = await _db.query('stories', columns: ['cover_path'], where: 'id = ?', whereArgs: [storyId]);
+    await _db.update('stories', {'cover_path': null}, where: 'id = ?', whereArgs: [storyId]);
+    final oldPath = old.isEmpty ? null : old.single['cover_path'] as String?;
+    if (oldPath != null) await _deleteQuietly(oldPath);
+    if (notify) notifyListeners();
+  }
+
+  /// Remplace les parties et répliques d'une histoire par celles d'un
+  /// nouveau .docx. Le titre FR, le dossier et la couverture sont gardés.
+  Future<void> replaceStoryContent(int storyId, ParsedStory parsed) async {
+    await _db.transaction((txn) async {
+      await txn.delete('parts', where: 'story_id = ?', whereArgs: [storyId]);
+      await txn.update('stories', {'title_en': parsed.title.en}, where: 'id = ?', whereArgs: [storyId]);
+      for (final (index, part) in parsed.parts.indexed) {
+        final partId = await txn.insert('parts', {
+          'story_id': storyId,
+          'position': index,
+          'title': part.title.fr,
+          'title_en': part.title.en,
+        });
+        await _insertItems(txn, partId, part.items);
+      }
+    });
+    notifyListeners();
   }
 
   /// Enregistre une histoire analysée, avec sa couverture éventuelle.
@@ -392,4 +464,14 @@ class DuplicateCharacterException implements Exception {
 
   @override
   String toString() => '« $name » existe déjà.';
+}
+
+/// Le personnage a déjà un dossier de ce nom.
+class DuplicateFolderException implements Exception {
+  const DuplicateFolderException(this.name);
+
+  final String name;
+
+  @override
+  String toString() => 'Un dossier « $name » existe déjà pour ce personnage.';
 }
