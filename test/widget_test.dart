@@ -10,7 +10,9 @@ import 'package:lads_trad/data/models.dart';
 import 'package:lads_trad/data/overlay_settings.dart';
 import 'package:lads_trad/data/services.dart';
 import 'package:lads_trad/docx/docx_reader.dart';
+import 'package:lads_trad/docx/story_export.dart';
 import 'package:lads_trad/docx/story_parser.dart';
+import 'package:lads_trad/screens/admin/export_sheet.dart';
 import 'package:lads_trad/state/admin_mode.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -439,4 +441,84 @@ void main() {
     await _settle(tester);
     expect(find.textContaining('Abandon'), findsNothing);
   });
+
+  testWidgets("La fiche ouvre l'export, qui propose les langues et les noms de fichiers", (tester) async {
+    await start(tester);
+    await enterAdmin(tester);
+    await tester.tap(find.text('Into The Canvas'));
+    await _settle(tester);
+    await tester.tap(find.text('Modifier'));
+    await _settle(tester);
+    // La notification « Mode admin activé » recouvre le bas de l'écran.
+    await tester.pump(const Duration(seconds: 5));
+    await _settle(tester);
+    await tester.ensureVisible(find.text('Exporter en .docx'));
+    await tester.tap(find.text('Exporter en .docx'));
+    await _settle(tester);
+
+    expect(find.text('Into The Canvas - FR.docx'), findsOneWidget);
+    await tester.tap(find.text('Les deux'));
+    await tester.pump();
+    expect(find.text('Into The Canvas - EN.docx'), findsOneWidget);
+    await tester.tap(find.text('Bilingue'));
+    await tester.pump();
+    expect(find.text('Into The Canvas - EN-FR.docx'), findsOneWidget);
+    expect(find.text('Pour relire : ce fichier ne se réimporte pas'), findsOneWidget);
+    await tester.tap(find.text('Anglais'));
+    await tester.pump();
+    expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged, isNull, reason: 'pas de notes en anglais');
+  });
+
+  testWidgets('Télécharger et Partager passent les .docx produits', (tester) async {
+    await start(tester);
+    final story = (await tester.runAsync(() async => (await library.searchStories('canvas')).single))!;
+    final target = _FakeExportTarget();
+    await tester.pumpWidget(Services(
+      library: library,
+      settings: settings,
+      child: MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showExportSheet(context, story, target: target),
+              child: const Text('Ouvrir'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Ouvrir'));
+    await _settle(tester);
+
+    await tester.tap(find.text('Les deux'));
+    await tester.pump();
+    await tester.tap(find.text('Partager'));
+    await _settle(tester);
+    expect(target.shared.single, ['Into The Canvas - FR.docx', 'Into The Canvas - EN.docx']);
+    expect(target.subject, 'Into The Canvas');
+
+    await tester.tap(find.text('Télécharger'));
+    await _settle(tester);
+    expect(target.saved.single, ['Into The Canvas - FR.docx', 'Into The Canvas - EN.docx']);
+    expect(find.text('2 fichiers enregistrés.'), findsOneWidget);
+    expect(find.text('Télécharger'), findsNothing, reason: 'le panneau se ferme');
+  });
+}
+
+class _FakeExportTarget implements ExportTarget {
+  final saved = <List<String>>[];
+  final shared = <List<String>>[];
+  String? subject;
+
+  @override
+  Future<int> save(List<ExportFile> files) async {
+    saved.add([for (final f in files) f.name]);
+    return files.length;
+  }
+
+  @override
+  Future<void> share(List<ExportFile> files, {required String subject}) async {
+    shared.add([for (final f in files) f.name]);
+    this.subject = subject;
+  }
 }

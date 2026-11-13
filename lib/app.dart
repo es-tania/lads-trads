@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 
 import 'screens/admin/characters_screen.dart';
 import 'screens/admin/editor_screen.dart';
-import 'screens/admin/export_screen.dart';
 import 'screens/admin/import_screen.dart';
 import 'screens/admin/story_admin_screen.dart';
 import 'screens/folder_screen.dart';
@@ -26,11 +25,7 @@ abstract final class Routes {
   static const replaceContent = '/admin/remplacer';
   static const storyAdmin = '/admin/fiche';
   static const editor = '/admin/editeur';
-  static const export = '/admin/export';
   static const characters = '/admin/personnages';
-
-  /// Écrans qui s'ouvrent comme une fenêtre (croix en haut à gauche).
-  static const _modals = {export};
 }
 
 class LadsTradApp extends StatelessWidget {
@@ -59,13 +54,11 @@ class LadsTradApp extends StatelessWidget {
       Routes.replaceContent => ImportScreen(replaceStoryId: arg! as int),
       Routes.storyAdmin => StoryAdminScreen(storyId: arg! as int),
       Routes.editor => EditorScreen(storyId: arg! as int),
-      Routes.export => const ExportScreen(),
       Routes.characters => const CharactersScreen(),
       _ => const LibraryScreen(),
     };
     return MaterialPageRoute<void>(
       settings: settings,
-      fullscreenDialog: Routes._modals.contains(settings.name),
       builder: (_) => page,
     );
   }

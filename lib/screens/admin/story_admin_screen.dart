@@ -10,6 +10,7 @@ import '../../data/services.dart';
 import '../../theme/ink.dart';
 import '../../widgets/cover.dart';
 import '../../widgets/ink_widgets.dart';
+import 'export_sheet.dart';
 import 'folder_choice.dart';
 
 const _danger = Color(0xFFE5484D);
@@ -240,7 +241,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
                             label: 'Exporter en .docx',
                             leading: const Icon(Icons.download_outlined, size: 18, color: InkColors.textFaint),
                             trailing: const Icon(Icons.chevron_right_rounded, size: 16, color: InkColors.textFaint),
-                            onTap: () => Navigator.pushNamed(context, Routes.export),
+                            onTap: () => showExportSheet(context, story),
                           ),
                         ],
                       ),
