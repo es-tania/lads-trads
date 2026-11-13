@@ -1,9 +1,39 @@
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/ink.dart';
 
-/// Emplacement d'une couverture absente (pointillés de la maquette remplacés
-/// par une bordure pleine : Flutter n'a pas de bordure en pointillés native).
+/// Couverture d'une histoire, ou un emplacement vide s'il n'y en a pas.
+class StoryCover extends StatelessWidget {
+  const StoryCover({super.key, required this.path, this.radius = 12, this.emptyLabel = 'Pas d\'image', this.decodeWidth = 400});
+
+  final String? path;
+  final double radius;
+  final String? emptyLabel;
+
+  /// Largeur de décodage en pixels : évite de garder en mémoire des images
+  /// de plusieurs mégaoctets pour une vignette.
+  final int decodeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final placeholder = CoverPlaceholder(radius: radius, label: emptyLabel);
+    if (path == null) return placeholder;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Image.file(
+        File(path!),
+        fit: BoxFit.cover,
+        cacheWidth: decodeWidth,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => placeholder,
+      ),
+    );
+  }
+}
+
+/// Emplacement d'une couverture absente.
 class CoverPlaceholder extends StatelessWidget {
   const CoverPlaceholder({super.key, this.radius = 12, this.label = 'Pas d\'image'});
 

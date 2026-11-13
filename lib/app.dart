@@ -8,12 +8,17 @@ import 'screens/admin/new_folder_screen.dart';
 import 'screens/admin/story_admin_screen.dart';
 import 'screens/folder_screen.dart';
 import 'screens/library_screen.dart';
+import 'screens/search_screen.dart';
 import 'screens/story_screen.dart';
 import 'theme/ink.dart';
 
 /// Noms des routes. Les écrans admin portent le préfixe /admin.
+///
+/// Arguments : [folder] et [story] attendent un identifiant (int),
+/// [import] un identifiant de personnage facultatif.
 abstract final class Routes {
   static const library = '/';
+  static const search = '/recherche';
   static const folder = '/dossier';
   static const story = '/histoire';
 
@@ -45,13 +50,14 @@ class LadsTradApp extends StatelessWidget {
   }
 
   static Route<void> _onGenerateRoute(RouteSettings settings) {
-    final arg = settings.arguments as String?;
+    final arg = settings.arguments;
     final Widget page = switch (settings.name) {
-      Routes.folder => FolderScreen(folderName: arg ?? 'Dossier'),
-      Routes.story => StoryScreen(title: arg ?? 'Histoire'),
-      Routes.import => const ImportScreen(),
-      Routes.storyAdmin => const StoryAdminScreen(),
-      Routes.newFolder => NewFolderScreen(editing: arg),
+      Routes.search => const SearchScreen(),
+      Routes.folder => FolderScreen(folderId: arg! as int),
+      Routes.story => StoryScreen(storyId: arg! as int),
+      Routes.import => ImportScreen(characterId: arg as int?),
+      Routes.storyAdmin => StoryAdminScreen(storyId: arg! as int),
+      Routes.newFolder => NewFolderScreen(editing: arg as String?),
       Routes.editor => const EditorScreen(),
       Routes.editLine => const EditLineScreen(),
       Routes.export => const ExportScreen(),
