@@ -171,4 +171,25 @@ void main() {
     expect(LibraryRepository.kindForSpeaker(LineRowKind.thought, null), LineRowKind.narration);
     expect(LibraryRepository.kindForSpeaker(LineRowKind.narration, 'Moi'), LineRowKind.dialogue);
   });
+
+  test("renommer un personnage change toutes ses répliques, dans l'histoire ou partout", () async {
+    // Une deuxième histoire où Rafayel parle aussi.
+    final folder = (await repo.stories((await repo.story(storyId))!.folderId)).first.folderId;
+    final other = await repo.saveStory(
+      folderId: folder,
+      title: 'Autre',
+      parsed: parseStoryParagraphs(fr: [p('FIN', h1: true), p('Rafayel : Au revoir.')]),
+    );
+    expect(await repo.speakerCounts('Rafayel', storyId), (inStory: 3, everywhere: 4));
+
+    expect(await repo.renameSpeaker('Rafayel', ' Rafaël ', storyId: storyId), 3);
+    expect(await repo.speakers(storyId), ['Rafaël']);
+    expect((await repo.lines((await repo.parts(other)).single.id)).single.speaker, 'Rafayel', reason: 'autre histoire');
+    expect((await line('Salut.')).speakerEn, 'Rafayel', reason: 'le nom anglais ne change pas');
+
+    expect(await repo.renameSpeaker('Rafayel', 'Rafaël'), 1, reason: 'toutes les histoires');
+    expect(await repo.speakers(other), ['Rafaël']);
+    await expectLater(repo.renameSpeaker('Rafaël', '  '), throwsArgumentError);
+    expect(await repo.renameSpeaker('Rafaël', 'Rafaël'), 0);
+  });
 }

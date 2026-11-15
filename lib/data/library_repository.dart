@@ -352,6 +352,35 @@ class LibraryRepository extends ChangeNotifier {
   /// écrans rechargent leurs données.
   void refresh() => notifyListeners();
 
+  /// Renomme un personnage dans toutes ses répliques : celles de l'histoire
+  /// [storyId], ou de toutes les histoires si `null`. Si [to] existe déjà, les
+  /// deux personnages n'en font plus qu'un. Le nom anglais ne change pas.
+  /// Renvoie le nombre de répliques modifiées.
+  Future<int> renameSpeaker(String from, String to, {int? storyId}) async {
+    final target = _clean(to);
+    if (target == null) throw ArgumentError.value(to, 'to', 'Nom vide');
+    if (target == from) return 0;
+    final count = storyId == null
+        ? await _db.rawUpdate('UPDATE lines SET speaker = ? WHERE speaker = ?', [target, from])
+        : await _db.rawUpdate(
+            'UPDATE lines SET speaker = ? WHERE speaker = ? AND part_id IN (SELECT id FROM parts WHERE story_id = ?)',
+            [target, from, storyId],
+          );
+    notifyListeners();
+    return count;
+  }
+
+  /// Nombre de répliques de ce personnage dans l'histoire [storyId], et
+  /// dans toute la bibliothèque.
+  Future<({int inStory, int everywhere})> speakerCounts(String name, int storyId) async {
+    final inStory = Sqflite.firstIntValue(await _db.rawQuery(
+      'SELECT COUNT(*) FROM lines WHERE speaker = ? AND part_id IN (SELECT id FROM parts WHERE story_id = ?)',
+      [name, storyId],
+    ));
+    final everywhere = Sqflite.firstIntValue(await _db.rawQuery('SELECT COUNT(*) FROM lines WHERE speaker = ?', [name]));
+    return (inStory: inStory ?? 0, everywhere: everywhere ?? 0);
+  }
+
   /// Insère une ligne juste avant ou juste après [lineId], au même niveau
   /// (tronc ou branche). Après un choix, elle vient après toutes ses
   /// branches. Renvoie son identifiant.
