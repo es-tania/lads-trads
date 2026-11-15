@@ -49,6 +49,12 @@ class FakeHost implements OverlayHost {
     return speaker == null ? 'narration' : 'dialogue';
   }
 
+  final renames = <(int, String, String)>[];
+
+  @override
+  Future<void> renameSpeaker(int storyId, {required String from, required String to}) async =>
+      renames.add((storyId, from, to));
+
   @override
   Stream<Object?> get messages => controller.stream;
 
@@ -97,7 +103,7 @@ final parts = [
   ]),
 ];
 
-Map<String, Object?> load({int id = 1, bool admin = false, List<String> speakers = const ['Rafayel', 'Moi']}) =>
+Map<String, Object?> load({int id = 1, bool admin = false, List<String> speakers = const ['Rafayel', 'Moi'], int? storyId = 7}) =>
     OverlayMessages.loadMessage(
       id: id,
       storyTitle: 'Into The Canvas',
@@ -107,6 +113,7 @@ Map<String, Object?> load({int id = 1, bool admin = false, List<String> speakers
       fontSize: 15,
       admin: admin,
       speakers: speakers,
+      storyId: storyId,
     );
 
 void main() {
@@ -329,7 +336,13 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
     await tester.pumpAndSettle();
 
-    // Un personnage existant.
+    // La liste est repliée : seul le personnage actuel est visible.
+    expect(find.text('Moi'), findsNothing);
+    expect(find.text('+ Autre'), findsNothing);
+    await tester.tap(find.bySemanticsLabel('Changer de personnage'));
+    await tester.pumpAndSettle();
+
+    // Un personnage existant : la liste se replie après le choix.
     await tester.tap(find.text('Moi'));
     await tester.pumpAndSettle();
     expect(find.text('Modifier · Moi'), findsOneWidget);
@@ -340,6 +353,8 @@ void main() {
 
     // Un nouveau personnage, créé depuis la fenêtre.
     await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Changer de personnage'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('+ Autre'));
     await tester.pumpAndSettle();
@@ -356,7 +371,15 @@ void main() {
     // Narration : plus de personnage.
     await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
     await tester.pumpAndSettle();
-    expect(find.text('Zayne'), findsOneWidget, reason: 'le nouveau personnage reste proposé');
+    await tester.tap(find.bySemanticsLabel('Changer de personnage'));
+    await tester.pumpAndSettle();
+    expect(find.text('Zayne'), findsNWidgets(1), reason: 'le nouveau personnage reste proposé');
+    // Replier sans changer, puis déplier à nouveau.
+    await tester.tap(find.bySemanticsLabel('Replier la liste'));
+    await tester.pumpAndSettle();
+    expect(find.text('Narration'), findsNothing);
+    await tester.tap(find.bySemanticsLabel('Changer de personnage'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Narration'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Enregistrer'));
@@ -382,5 +405,70 @@ void main() {
   test('la fenêtre est créée en pixels, pas en points', () {
     final g = overlayStartGeometry(screenWidth: 384, pixelRatio: 2.8125);
     expect(g, (width: 1035, height: 338, x: 23, y: 338));
+  });
+
+  testWidgets("dans la fenêtre, on met un passage en italique", (tester) async {
+    await start(tester);
+    host.controller.add(load(admin: true));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    final field = tester.widget<EditableText>(find.byType(EditableText).first);
+    field.controller.selection = const TextSelection(baseOffset: 4, extentOffset: 12);
+    await tester.pump();
+    await tester.tap(find.byTooltip('Italique'));
+    await tester.pump();
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(host.saved.last.$2, 'Les <i>couleurs</i> sont prêtes.');
+    expect(find.text('Les couleurs sont prêtes.', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('un nom de personnage très long est coupé, sans déborder', (tester) async {
+    await start(tester);
+    const long = 'Petit garçon (audio uniquement, au loin dans la rue)';
+    host.controller.add(load(admin: true, speakers: ['Rafayel', long]));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Changer de personnage'));
+    await tester.pumpAndSettle();
+
+    final name = tester.widget<Text>(find.text(long));
+    expect(name.overflow, TextOverflow.ellipsis);
+    expect(tester.getSize(find.text(long)).width, lessThanOrEqualTo(170));
+    await tester.tap(find.text(long));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'pas de « right overflowed »');
+  });
+
+  testWidgets("dans la fenêtre, on corrige le nom d'un personnage dans toute l'histoire", (tester) async {
+    await start(tester);
+    host.controller.add(load(admin: true));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Changer de personnage'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('✎ Renommer'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<EditableText>(find.byType(EditableText).first).controller.text, 'Rafayel');
+
+    await tester.enterText(find.byType(EditableText).first, 'Rafaël');
+    await tester.pump();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(host.renames, [(7, 'Rafayel', 'Rafaël')]);
+    expect(find.text('Modifier · Rafaël'), findsOneWidget);
+
+    // Même sans enregistrer la réplique, le nom est corrigé partout dans la lecture.
+    await tester.tap(find.text('Annuler'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rafaël'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Réplique suivante'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Réussite !'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rafaël'), findsOneWidget, reason: 'aussi dans les branches');
   });
 }

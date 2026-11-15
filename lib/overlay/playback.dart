@@ -206,6 +206,21 @@ class Playback {
     }
   }
 
+  /// Remplace le nom d'un personnage dans toutes ses répliques.
+  void renameSpeaker(String from, String to) {
+    PlayLine fix(PlayLine l) => l.speaker == from ? l.copyWith(text: l.text, speaker: to, kind: l.kind) : l;
+    for (final (p, part) in parts.indexed) {
+      parts[p] = PlayPart(title: part.title, items: [
+        for (final item in part.items)
+          item.isChoice
+              ? PlayItem.choice([
+                  for (final o in item.options!) PlayOption(label: o.label, lines: [for (final l in o.lines) fix(l)]),
+                ])
+              : PlayItem.line(fix(item.line!)),
+      ]);
+    }
+  }
+
   /// Va au début d'une partie.
   void jumpToPart(int part) {
     _part = part.clamp(0, parts.length - 1);

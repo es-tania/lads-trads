@@ -36,6 +36,9 @@ abstract class OverlayHost {
   /// (« dialogue », « thought » ou « narration »).
   Future<String> saveLine(int lineId, {required String text, required String? speaker});
 
+  /// Renomme un personnage dans toutes les répliques de l'histoire [storyId].
+  Future<void> renameSpeaker(int storyId, {required String from, required String to});
+
   /// Messages envoyés par l'app.
   Stream<Object?> get messages;
 
@@ -105,6 +108,13 @@ class PluginOverlayHost implements OverlayHost {
       kind: kind,
     )));
     return kind;
+  }
+
+  @override
+  Future<void> renameSpeaker(int storyId, {required String from, required String to}) async {
+    final library = _library ??= await openDeviceLibrary();
+    await library.renameSpeaker(from, to, storyId: storyId);
+    unawaited(send(OverlayMessages.renamedMessage(from: from, to: to.trim())));
   }
 
   // Le flux du plugin ne peut être écouté qu'une fois : on le partage.

@@ -11,6 +11,11 @@ abstract final class OverlayMessages {
   static const load = 'load';
   static const settings = 'settings';
   static const edited = 'edited';
+  static const renamed = 'renamed';
+
+  /// Un personnage renommé dans toute l'histoire, depuis la fenêtre.
+  static Map<String, Object?> renamedMessage({required String from, required String to}) =>
+      {'type': renamed, 'from': from, 'to': to};
 
   /// [speaker] `null` : la ligne est devenue une narration.
   static Map<String, Object?> editedMessage({
@@ -35,6 +40,7 @@ abstract final class OverlayMessages {
     required double fontSize,
     bool admin = false,
     List<String> speakers = const [],
+    int? storyId,
   }) =>
       {
         'type': load,
@@ -50,6 +56,8 @@ abstract final class OverlayMessages {
         'admin': admin,
         // Personnages de l'histoire, proposés pour corriger qui parle.
         'speakers': speakers,
+        // Pour renommer un personnage dans toute l'histoire.
+        'storyId': storyId,
       };
 
   static String? typeOf(Object? message) =>

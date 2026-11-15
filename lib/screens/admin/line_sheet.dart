@@ -1,8 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../data/models.dart';
+import '../../data/services.dart';
 import '../../theme/ink.dart';
 import '../../widgets/ink_sheet.dart';
+import '../../widgets/markup_field.dart';
 
 const _danger = Color(0xFFE5484D);
 
@@ -40,20 +42,24 @@ class LineDeleted extends LineSheetResult {
 Future<LineSheetResult?> showLineSheet(
   BuildContext context, {
   required String eyebrow,
+  required int storyId,
   required List<String> speakers,
   LineRow? line,
   LineDraft? initial,
 }) {
   return showInkSheet<LineSheetResult>(
     context,
-    builder: (_) => _LineSheet(eyebrow: eyebrow, speakers: speakers, line: line, initial: initial),
+    builder: (_) => _LineSheet(eyebrow: eyebrow, storyId: storyId, speakers: speakers, line: line, initial: initial),
   );
 }
 
 class _LineSheet extends StatefulWidget {
-  const _LineSheet({required this.eyebrow, required this.speakers, this.line, this.initial});
+  const _LineSheet({required this.eyebrow, required this.storyId, required this.speakers, this.line, this.initial});
 
   final String eyebrow;
+
+  /// Histoire de la réplique, pour renommer un personnage partout dedans.
+  final int storyId;
   final List<String> speakers;
   final LineRow? line;
   final LineDraft? initial;
@@ -66,7 +72,7 @@ class _LineSheetState extends State<_LineSheet> {
   late LineRowKind _kind;
   String? _speaker;
   late final List<String> _speakers;
-  late final TextEditingController _text;
+  late final MarkupController _text;
   late final TextEditingController _note;
 
   bool get _creating => widget.line == null;
@@ -80,7 +86,7 @@ class _LineSheetState extends State<_LineSheet> {
     _speaker = line?.speaker ?? initial?.speaker;
     _speakers = [...widget.speakers];
     if (_speaker != null && !_speakers.contains(_speaker)) _speakers.add(_speaker!);
-    _text = TextEditingController(text: line?.text ?? initial?.text ?? '')..addListener(_refresh);
+    _text = MarkupController(markup: line?.text ?? initial?.text ?? '')..addListener(_refresh);
     _note = TextEditingController(text: line?.note ?? initial?.note ?? '');
   }
 
@@ -95,7 +101,7 @@ class _LineSheetState extends State<_LineSheet> {
 
   LineDraft get _draft => LineDraft(
     kind: _kind,
-    text: _text.text,
+    text: _text.markup,
     speaker: _kind == LineRowKind.narration ? null : _speaker,
     note: _note.text,
   );
@@ -109,6 +115,33 @@ class _LineSheetState extends State<_LineSheet> {
     setState(() {
       if (!_speakers.contains(trimmed)) _speakers.add(trimmed);
       _speaker = trimmed;
+    });
+  }
+
+  /// Corrige le nom du personnage choisi dans toutes ses répliques (de
+  /// l'histoire, ou de toutes les histoires).
+  Future<void> _renameSpeaker() async {
+    final from = _speaker;
+    if (from == null) return;
+    final library = context.library;
+    // Un nom tapé avec « Autre » n'est pas encore en base : il change ici seulement.
+    final saved = widget.speakers.contains(from);
+    final counts = saved ? await library.speakerCounts(from, widget.storyId) : null;
+    if (!mounted) return;
+    final result = await showDialog<(String, bool)>(
+      context: context,
+      builder: (_) => _RenameSpeakerDialog(name: from, counts: counts),
+    );
+    if (result == null || !mounted) return;
+    final (to, everywhere) = result;
+    if (saved) await library.renameSpeaker(from, to, storyId: everywhere ? null : widget.storyId);
+    if (!mounted) return;
+    setState(() {
+      final i = _speakers.indexOf(from);
+      _speakers.remove(to);
+      _speakers.insert(i.clamp(0, _speakers.length), to);
+      _speakers.remove(from);
+      _speaker = to;
     });
   }
 
@@ -135,7 +168,7 @@ class _LineSheetState extends State<_LineSheet> {
   @override
   Widget build(BuildContext context) {
     final line = widget.line;
-    final changedText = line != null && _text.text.trim() != line.text.trim();
+    final changedText = line != null && _text.markup.trim() != line.text.trim();
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -172,6 +205,20 @@ class _LineSheetState extends State<_LineSheet> {
               ],
             ),
           ),
+          if (_speaker != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _renameSpeaker,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(44, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 13),
+                ),
+                icon: const Icon(Icons.edit_outlined, size: 14),
+                label: Text('Renommer « $_speaker »', maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ),
         ],
         const SizedBox(height: 20),
         _Labeled(
@@ -179,12 +226,11 @@ class _LineSheetState extends State<_LineSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
+              MarkupField(
                 controller: _text,
                 autofocus: _creating,
                 minLines: 3,
                 maxLines: 8,
-                textCapitalization: TextCapitalization.sentences,
                 style: const TextStyle(fontFamily: InkFonts.display, fontSize: 19, height: 1.4, color: InkColors.text),
                 decoration: inkSheetField(strong: true),
               ),
@@ -194,8 +240,8 @@ class _LineSheetState extends State<_LineSheet> {
                   TextSpan(
                     text: 'Avant : ',
                     children: [
-                      TextSpan(
-                        text: line.text,
+                      markupTextSpan(
+                        line.text,
                         style: const TextStyle(
                           fontFamily: InkFonts.display,
                           fontSize: 15,
@@ -361,6 +407,8 @@ class _SpeakerChip extends StatelessWidget {
           onTap: onTap,
           child: Container(
             height: 36,
+            // Un nom très long est coupé avec « … ».
+            constraints: const BoxConstraints(maxWidth: 220),
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: selected ? InkColors.raised : null,
@@ -381,7 +429,17 @@ class _SpeakerChip extends StatelessWidget {
                   const Icon(Icons.add_rounded, size: 14, color: InkColors.textMuted),
                   const SizedBox(width: 4),
                 ],
-                Text(name, style: TextStyle(fontSize: 14, color: selected ? InkColors.text : InkColors.textMuted)),
+                Flexible(
+                  child: Tooltip(
+                    message: name,
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 14, color: selected ? InkColors.text : InkColors.textMuted),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -409,6 +467,81 @@ class _SmallButton extends StatelessWidget {
         textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
       ),
       child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    );
+  }
+}
+
+/// Nouveau nom d'un personnage, et où le changer. Renvoie (nom, partout).
+class _RenameSpeakerDialog extends StatefulWidget {
+  const _RenameSpeakerDialog({required this.name, required this.counts});
+
+  final String name;
+
+  /// Répliques concernées ; `null` pour un nom pas encore enregistré.
+  final ({int inStory, int everywhere})? counts;
+
+  @override
+  State<_RenameSpeakerDialog> createState() => _RenameSpeakerDialogState();
+}
+
+class _RenameSpeakerDialogState extends State<_RenameSpeakerDialog> {
+  late final _name = TextEditingController(text: widget.name)..addListener(() => setState(() {}));
+  var _everywhere = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  static String _lines(int n) => n == 1 ? '1 réplique' : '$n répliques';
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = widget.counts;
+    final to = _name.text.trim();
+    final others = counts == null ? 0 : counts.everywhere - counts.inStory;
+    return AlertDialog(
+      backgroundColor: InkColors.surface,
+      title: const Text('Renommer le personnage'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _name,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(hintText: 'Nom'),
+          ),
+          if (counts != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              '${_lines(counts.inStory)} dans cette histoire',
+              style: const TextStyle(fontSize: 13, color: InkColors.textMuted),
+            ),
+            if (others > 0)
+              CheckboxListTile(
+                value: _everywhere,
+                onChanged: (v) => setState(() => _everywhere = v ?? false),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('Dans toutes les histoires', style: TextStyle(fontSize: 15)),
+                subtitle: Text(
+                  '+ ${_lines(others)} ailleurs',
+                  style: const TextStyle(fontSize: 13, color: InkColors.textFaint),
+                ),
+              ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+        FilledButton(
+          onPressed: to.isEmpty || to == widget.name ? null : () => Navigator.pop(context, (to, _everywhere)),
+          child: const Text('Renommer'),
+        ),
+      ],
     );
   }
 }

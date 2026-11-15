@@ -5,6 +5,7 @@ import '../../data/library_repository.dart';
 import '../../data/models.dart';
 import '../../data/services.dart';
 import '../../theme/ink.dart';
+import '../../widgets/markup_field.dart';
 import 'line_sheet.dart';
 
 /// Ce que l'éditeur affiche pour une partie.
@@ -52,6 +53,7 @@ class _EditorScreenState extends State<EditorScreen> {
     final result = await showLineSheet(
       context,
       eyebrow: '${part.displayTitle} · $where',
+      storyId: widget.storyId,
       speakers: data.speakers,
       line: line,
     );
@@ -92,7 +94,13 @@ class _EditorScreenState extends State<EditorScreen> {
   }) async {
     // Par défaut, même type et même personnage que la réplique voisine.
     final initial = like == null ? null : LineDraft(kind: like.kind, text: '', speaker: like.speaker);
-    final result = await showLineSheet(context, eyebrow: eyebrow, speakers: data.speakers, initial: initial);
+    final result = await showLineSheet(
+      context,
+      eyebrow: eyebrow,
+      storyId: widget.storyId,
+      speakers: data.speakers,
+      initial: initial,
+    );
     if (result is LineSaved) _done(await save(result.draft));
   }
 
@@ -494,13 +502,13 @@ class _LineText extends StatelessWidget {
             TextSpan(
               children: [
                 if (!narration) TextSpan(text: '$speaker  ', style: speakerStyle),
-                TextSpan(text: line.text, style: textStyle),
+                markupTextSpan(line.text, style: textStyle),
               ],
             ),
           )
         else ...[
           if (!narration) ...[Text(speaker, style: speakerStyle), const SizedBox(height: 2)],
-          Text(line.text, style: textStyle),
+          MarkupText(line.text, style: textStyle),
         ],
         if (line.note != null) ...[
           const SizedBox(height: 4),

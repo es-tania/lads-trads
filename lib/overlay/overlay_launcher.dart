@@ -92,6 +92,8 @@ class OverlayLauncher {
           unawaited(FlutterOverlayWindow.shareData(_lastLoad));
         case OverlayMessages.edited:
           onEdited(message! as Map<Object?, Object?>);
+        case OverlayMessages.renamed:
+          onRenamed(message! as Map<Object?, Object?>);
       }
     });
 
@@ -105,6 +107,7 @@ class OverlayLauncher {
       fontSize: settings.textSize.fontSize,
       admin: admin,
       speakers: admin ? await library.speakers(storyId) : const [],
+      storyId: storyId,
     );
 
     if (!await FlutterOverlayWindow.isActive()) {
@@ -154,6 +157,26 @@ class OverlayLauncher {
     ])..updateLine(id, text: text, speaker: speaker, kind: kind);
     final speakers = [...(load['speakers'] as List<Object?>? ?? const []).cast<String>()];
     if (speaker != null && !speakers.contains(speaker)) speakers.add(speaker);
+    _lastLoad = {...load, 'parts': [for (final p in playback.parts) p.toJson()], 'speakers': speakers};
+  }
+
+  /// Un personnage renommé depuis la fenêtre : écrans rechargés, et l'histoire
+  /// gardée pour un redémarrage de la fenêtre prend le nouveau nom.
+  @visibleForTesting
+  void onRenamed(Map<Object?, Object?> message) {
+    library.refresh();
+    final load = _lastLoad;
+    final from = message['from'] as String?;
+    final to = message['to'] as String?;
+    if (load == null || from == null || to == null) return;
+    final playback = Playback([
+      for (final p in load['parts']! as List<Object?>) PlayPart.fromJson(p! as Map<Object?, Object?>),
+    ])..renameSpeaker(from, to);
+    final speakers = [
+      for (final s in (load['speakers'] as List<Object?>? ?? const []).cast<String>())
+        if (s != from && s != to) s,
+      to,
+    ];
     _lastLoad = {...load, 'parts': [for (final p in playback.parts) p.toJson()], 'speakers': speakers};
   }
 

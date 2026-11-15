@@ -538,6 +538,47 @@ void main() {
     expect(find.text('Seulement FR - EN.docx'), findsNothing);
   });
 
+
+  testWidgets("Dans l'éditeur, on met un passage en gras", (tester) async {
+    await start(tester);
+    await openEditor(tester);
+    await tester.tap(find.text('Salut.'));
+    await _settle(tester);
+    final field = tester.widget<EditableText>(find.byType(EditableText).first);
+    field.controller.selection = const TextSelection(baseOffset: 0, extentOffset: 5);
+    await tester.pump();
+    await tester.tap(find.byTooltip('Gras'));
+    await tester.pump();
+    await tester.tap(find.text('Enregistrer'));
+    await _settle(tester);
+
+    final part = (await tester.runAsync(() async => (await library.parts((await library.searchStories('canvas')).single.id)).first))!;
+    final lines = (await tester.runAsync(() => library.lines(part.id)))!;
+    expect(lines.first.text, '<b>Salut</b>.');
+    expect(find.text('Salut.', findRichText: true), findsOneWidget, reason: 'affiché sans balises');
+  });
+
+
+  testWidgets("Dans l'éditeur, on renomme un personnage dans toute l'histoire", (tester) async {
+    await start(tester);
+    await openEditor(tester);
+    await tester.tap(find.text('Salut.'));
+    await _settle(tester);
+    await tester.tap(find.text('Renommer « Rafayel »'));
+    await _settle(tester);
+    expect(find.text('Renommer le personnage'), findsOneWidget);
+    expect(find.text('1 réplique dans cette histoire'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Rafayel'), 'Rafaël');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Renommer'));
+    await _settle(tester);
+    expect(find.text('Renommer « Rafaël »'), findsOneWidget);
+
+    final storyId = (await tester.runAsync(() async => (await library.searchStories('canvas')).single.id))!;
+    expect(await tester.runAsync(() => library.speakers(storyId)), ['Rafaël']);
+  });
+
   Future<Uint8List> png(int w, int h) async {
     final recorder = ui.PictureRecorder();
     Canvas(recorder).drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = const Color(0xFF336699));

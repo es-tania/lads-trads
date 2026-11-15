@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/ink.dart';
+import '../widgets/markup_field.dart';
 import 'overlay_host.dart';
 import 'overlay_messages.dart';
 import 'playback.dart';
@@ -74,13 +75,23 @@ class _OverlayScreenState extends State<OverlayScreen> {
 
   /// Réplique en cours de modification, `null` en lecture.
   PlayLine? _editing;
-  final _editText = TextEditingController();
+  final _editText = MarkupController();
 
   /// Personnage choisi pendant la modification (`null` : narration).
   String? _editSpeaker;
 
-  /// Saisie d'un nouveau personnage (« + Autre »), `null` si fermée.
+  /// Saisie d'un nom (« + Autre », ou « ✎ Renommer »), `null` si fermée.
   TextEditingController? _newSpeaker;
+
+  /// Le champ ci-dessus renomme le personnage choisi (sinon il en ajoute un).
+  var _renaming = false;
+
+  /// Histoire affichée, pour renommer un personnage partout dedans.
+  int? _storyId;
+
+  /// Liste des personnages dépliée : repliée, seul le personnage choisi est
+  /// visible, pour garder la fenêtre basse.
+  var _speakersOpen = false;
   String? _editError;
   var _savingEdit = false;
 
@@ -146,6 +157,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
           _playback = Playback(parts, part: (message['startPart'] as int?) ?? 0);
           _admin = message['admin'] == true;
           _speakers = [for (final s in message['speakers'] as List<Object?>? ?? const []) s! as String];
+          _storyId = message['storyId'] as int?;
           _applySettings(message);
           _reportedHeight = 0;
         });
@@ -199,8 +211,9 @@ class _OverlayScreenState extends State<OverlayScreen> {
     setState(() {
       _editing = line;
       _editError = null;
-      _editText.text = line.text;
+      _editText.markup = line.text;
       _editSpeaker = line.isNarration ? null : line.speaker;
+      _speakersOpen = false;
       _closeNewSpeaker();
     });
     // Le temps de la modification, la fenêtre reçoit le clavier.
@@ -219,6 +232,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
   void _closeNewSpeaker() {
     _newSpeaker?.dispose();
     _newSpeaker = null;
+    _renaming = false;
   }
 
   /// « + Autre » : un champ pour un personnage absent de la liste.
@@ -227,19 +241,54 @@ class _OverlayScreenState extends State<OverlayScreen> {
         _newSpeaker = TextEditingController();
       });
 
-  void _confirmNewSpeaker() {
+  /// « ✎ Renommer » : le même champ, prérempli avec le personnage choisi.
+  void _openRename() => setState(() {
+        _closeNewSpeaker();
+        _newSpeaker = TextEditingController(text: _editSpeaker);
+        _renaming = true;
+      });
+
+  Future<void> _confirmNewSpeaker() async {
     final name = _newSpeaker?.text.trim() ?? '';
     if (name.isEmpty) return;
+    if (_renaming) return _renameSpeaker(name);
     setState(() {
       if (!_speakers.contains(name)) _speakers = [..._speakers, name];
       _editSpeaker = name;
+      _speakersOpen = false;
+      _closeNewSpeaker();
+    });
+  }
+
+  /// Corrige le nom du personnage choisi dans toutes les répliques de
+  /// l'histoire.
+  Future<void> _renameSpeaker(String to) async {
+    final from = _editSpeaker;
+    final storyId = _storyId;
+    if (from == null || storyId == null || to == from) {
+      setState(_closeNewSpeaker);
+      return;
+    }
+    try {
+      await host.renameSpeaker(storyId, from: from, to: to).timeout(const Duration(seconds: 8));
+    } on Object catch (e) {
+      if (mounted) setState(() => _editError = 'Renommage impossible : $e');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _playback?.renameSpeaker(from, to);
+      _speakers = [for (final s in _speakers) if (s != from && s != to) s, to];
+      _editSpeaker = to;
+      _speakersOpen = false;
+      _editError = null;
       _closeNewSpeaker();
     });
   }
 
   Future<void> _saveEditing() async {
     final line = _editing;
-    final text = _editText.text.trim();
+    final text = _editText.markup.trim();
     if (line?.id == null || text.isEmpty || _savingEdit) return;
     setState(() {
       _savingEdit = true;
@@ -314,11 +363,19 @@ class _OverlayScreenState extends State<OverlayScreen> {
                             if (editing.speaker != null && !_speakers.contains(editing.speaker)) editing.speaker!,
                           ],
                           speaker: _editSpeaker,
+                          speakersOpen: _speakersOpen,
+                          onToggleSpeakers: () => setState(() {
+                            _speakersOpen = !_speakersOpen;
+                            if (!_speakersOpen) _closeNewSpeaker();
+                          }),
                           onSpeaker: (s) => setState(() {
                             _editSpeaker = s;
+                            _speakersOpen = false;
                             _closeNewSpeaker();
                           }),
                           newSpeaker: _newSpeaker,
+                          renaming: _renaming,
+                          onRename: _storyId == null ? null : _openRename,
                           onOther: _openNewSpeaker,
                           onConfirmOther: _confirmNewSpeaker,
                           controller: _editText,
@@ -582,8 +639,12 @@ class _EditView extends StatelessWidget {
   const _EditView({
     required this.speakers,
     required this.speaker,
+    required this.speakersOpen,
+    required this.onToggleSpeakers,
     required this.onSpeaker,
     required this.newSpeaker,
+    required this.renaming,
+    required this.onRename,
     required this.onOther,
     required this.onConfirmOther,
     required this.controller,
@@ -598,13 +659,21 @@ class _EditView extends StatelessWidget {
 
   /// Personnage choisi, `null` pour une narration.
   final String? speaker;
+
+  /// Liste des personnages dépliée (sinon : seulement le personnage choisi).
+  final bool speakersOpen;
+  final VoidCallback onToggleSpeakers;
   final ValueChanged<String?> onSpeaker;
 
-  /// Champ « + Autre » ouvert, ou `null`.
+  /// Champ « + Autre » (ou « ✎ Renommer ») ouvert, ou `null`.
   final TextEditingController? newSpeaker;
+  final bool renaming;
+
+  /// Renommer le personnage choisi dans toute l'histoire (`null` : impossible).
+  final VoidCallback? onRename;
   final VoidCallback onOther;
   final VoidCallback onConfirmOther;
-  final TextEditingController controller;
+  final MarkupController controller;
   final double fontSize;
   final String? error;
   final bool saving;
@@ -627,17 +696,40 @@ class _EditView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        // Qui parle : tout reste visible, les puces passent à la ligne.
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final name in speakers)
-              _SpeakerChip(label: name, dot: InkColors.forSpeaker(name), selected: name == speaker, onTap: () => onSpeaker(name)),
-            _SpeakerChip(label: 'Narration', selected: speaker == null, onTap: () => onSpeaker(null)),
-            _SpeakerChip(label: '+ Autre', selected: newSpeaker != null, dashed: true, onTap: onOther),
-          ],
-        ),
+        // Qui parle : replié, une seule puce (le personnage choisi) qui
+        // déplie la liste ; déplié, toutes les puces, qui passent à la ligne.
+        if (!speakersOpen)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _SpeakerChip(
+              label: speaker ?? 'Narration',
+              dot: speaker == null ? null : InkColors.forSpeaker(speaker!),
+              selected: true,
+              trailing: Icons.expand_more_rounded,
+              semanticsLabel: 'Changer de personnage',
+              onTap: onToggleSpeakers,
+            ),
+          )
+        else
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final name in speakers)
+                _SpeakerChip(label: name, dot: InkColors.forSpeaker(name), selected: name == speaker, onTap: () => onSpeaker(name)),
+              _SpeakerChip(label: 'Narration', selected: speaker == null, onTap: () => onSpeaker(null)),
+              _SpeakerChip(label: '+ Autre', selected: newSpeaker != null && !renaming, dashed: true, onTap: onOther),
+              if (speaker != null && onRename != null)
+                _SpeakerChip(label: '✎ Renommer', selected: renaming, dashed: true, onTap: onRename!),
+              _SpeakerChip(
+                label: '',
+                selected: false,
+                trailing: Icons.expand_less_rounded,
+                semanticsLabel: 'Replier la liste',
+                onTap: onToggleSpeakers,
+              ),
+            ],
+          ),
         if (newSpeaker != null) ...[
           const SizedBox(height: 6),
           Row(
@@ -650,9 +742,9 @@ class _EditView extends StatelessWidget {
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => onConfirmOther(),
                   style: const TextStyle(fontSize: 14),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Nom du personnage',
+                    hintText: renaming ? 'Nouveau nom (toute l\'histoire)' : 'Nom du personnage',
                     contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     fillColor: InkColors.surface,
                   ),
@@ -671,12 +763,12 @@ class _EditView extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 6),
-        TextField(
+        MarkupField(
           controller: controller,
+          compact: true,
           autofocus: newSpeaker == null,
           minLines: 2,
           maxLines: 5,
-          textCapitalization: TextCapitalization.sentences,
           style: InkText.dialogue.copyWith(fontSize: fontSize),
           decoration: const InputDecoration(
             isDense: true,
@@ -720,7 +812,15 @@ class _EditView extends StatelessWidget {
 
 /// Puce d'un personnage dans la fenêtre (choix de qui parle).
 class _SpeakerChip extends StatelessWidget {
-  const _SpeakerChip({required this.label, required this.selected, required this.onTap, this.dot, this.dashed = false});
+  const _SpeakerChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.dot,
+    this.dashed = false,
+    this.trailing,
+    this.semanticsLabel,
+  });
 
   final String label;
   final bool selected;
@@ -728,11 +828,19 @@ class _SpeakerChip extends StatelessWidget {
   final Color? dot;
   final bool dashed;
 
+  /// Flèche pour déplier ou replier la liste.
+  final IconData? trailing;
+  final String? semanticsLabel;
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
       selected: selected,
       button: true,
+      label: semanticsLabel,
+      // Le libellé dit l'action (« Changer de personnage ») : on ne le mêle
+      // pas au nom affiché.
+      excludeSemantics: semanticsLabel != null,
       child: Material(
         color: selected ? InkColors.raised : const Color(0x00000000),
         shape: RoundedRectangleBorder(
@@ -747,6 +855,8 @@ class _SpeakerChip extends StatelessWidget {
           },
           child: Container(
             height: 30,
+            // Un nom très long est coupé (« Petit garçon (audio uniq… »).
+            constraints: const BoxConstraints(maxWidth: 170),
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -755,7 +865,22 @@ class _SpeakerChip extends StatelessWidget {
                   Container(width: 6, height: 6, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
                   const SizedBox(width: 6),
                 ],
-                Text(label, style: TextStyle(fontSize: 13, color: selected ? InkColors.text : InkColors.textMuted)),
+                if (label.isNotEmpty)
+                  Flexible(
+                    child: Tooltip(
+                      message: label,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: selected ? InkColors.text : InkColors.textMuted),
+                      ),
+                    ),
+                  ),
+                if (trailing != null) ...[
+                  if (label.isNotEmpty) const SizedBox(width: 2),
+                  Icon(trailing, size: 16, color: InkColors.textMuted),
+                ],
               ],
             ),
           ),
@@ -773,7 +898,7 @@ class _LineText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return MarkupText(
       line.text,
       style: InkText.dialogue.copyWith(
         fontSize: fontSize,
