@@ -148,4 +148,17 @@ void main() {
     expect(paragraphs.single.text, 'A & B <c>\nsuite');
     expect(paragraphs.single.isHeading1, isTrue);
   });
+
+  test('les noms des personnages sont en gras, pas le texte', () async {
+    final file = await export(ExportLanguage.fr);
+    final xml = utf8.decode(ZipDecoder().decodeBytes(file.bytes).findFile('word/document.xml')!.content);
+    final runs = RegExp(r'<w:r>(.*?)</w:r>').allMatches(xml).map((m) => m.group(1)!).toList();
+    final name = runs.indexWhere((r) => r.contains('>Rafayel</w:t>'));
+    expect(runs[name], contains('<w:b/>'));
+    expect(runs[name + 1], contains(' : Les couleurs sont prêtes.'));
+    expect(runs[name + 1], isNot(contains('<w:b/>')));
+    expect(runs.where((r) => r.contains('Il sourit.')).single, isNot(contains('<w:b/>')), reason: 'narration');
+    // Toujours réimportable.
+    expect(readDocxParagraphs(file.bytes).map((x) => x.text), contains('Rafayel : Les couleurs sont prêtes.'));
+  });
 }

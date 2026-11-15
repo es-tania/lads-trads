@@ -104,13 +104,13 @@ List<OutParagraph> _storyParagraphs(
       final note = notes && r.note != null ? r.note : null;
       switch (lang) {
         case _Lang.fr:
-          out.add(OutParagraph(_lineText(r, en: false), comment: note));
+          out.add(_lineParagraph(r, en: false, comment: note));
         case _Lang.en:
           // Une réplique ajoutée dans l'éditeur n'a pas d'anglais.
-          if (r.textEn.trim().isNotEmpty) out.add(OutParagraph(_lineText(r, en: true)));
+          if (r.textEn.trim().isNotEmpty) out.add(_lineParagraph(r, en: true));
         case _Lang.bilingual:
-          if (r.textEn.trim().isNotEmpty) out.add(OutParagraph(_lineText(r, en: true), muted: true));
-          out.add(OutParagraph(_lineText(r, en: false), comment: note));
+          if (r.textEn.trim().isNotEmpty) out.add(_lineParagraph(r, en: true, muted: true));
+          out.add(_lineParagraph(r, en: false, comment: note));
       }
     }
 
@@ -147,12 +147,12 @@ String _choicePrompt(LineRow row, {required bool en}) {
   return en ? 'Choices :' : 'Choix:';
 }
 
-/// « Nom : texte » ; une pensée garde ses parenthèses, pour être reconnue
-/// à la réimportation.
-String _lineText(LineRow r, {required bool en}) {
+/// « Nom : texte », le nom en gras ; une pensée garde ses parenthèses, pour
+/// être reconnue à la réimportation.
+OutParagraph _lineParagraph(LineRow r, {required bool en, bool muted = false, String? comment}) {
   final text = en ? r.textEn : r.text;
-  if (r.kind == LineRowKind.narration || r.speaker == null) return text;
+  if (r.kind == LineRowKind.narration || r.speaker == null) return OutParagraph(text, muted: muted, comment: comment);
   final speaker = en && (r.speakerEn?.trim().isNotEmpty ?? false) ? r.speakerEn! : r.speaker!;
   final body = r.kind == LineRowKind.thought && !text.trimLeft().startsWith('(') ? '($text)' : text;
-  return '$speaker : $body';
+  return OutParagraph('$speaker : $body', boldLength: speaker.length, muted: muted, comment: comment);
 }

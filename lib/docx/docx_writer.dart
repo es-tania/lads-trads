@@ -6,9 +6,19 @@ import 'package:xml/xml.dart';
 
 /// Paragraphe à écrire dans un .docx.
 class OutParagraph {
-  const OutParagraph(this.text, {this.heading = false, this.listItem = false, this.comment, this.muted = false});
+  const OutParagraph(
+    this.text, {
+    this.heading = false,
+    this.listItem = false,
+    this.comment,
+    this.muted = false,
+    this.boldLength = 0,
+  });
 
   final String text;
+
+  /// Nombre de caractères en gras au début du texte (le nom du personnage).
+  final int boldLength;
 
   /// Style « Titre 1 » (titre de l'histoire, titres de parties).
   final bool heading;
@@ -52,7 +62,9 @@ Uint8List buildDocx(List<OutParagraph> paragraphs) {
             });
           }
           if (commentId != null) body.element('w:commentRangeStart', attributes: {'w:id': '$commentId'});
-          _runs(body, p.text, muted: p.muted);
+          final bold = p.boldLength.clamp(0, p.text.length);
+          if (bold > 0) _runs(body, p.text.substring(0, bold), muted: p.muted, bold: true);
+          if (bold < p.text.length || bold == 0) _runs(body, p.text.substring(bold), muted: p.muted);
           if (commentId != null) {
             body.element('w:commentRangeEnd', attributes: {'w:id': '$commentId'});
             body.element('w:r', nest: () {
@@ -91,10 +103,13 @@ Uint8List buildDocx(List<OutParagraph> paragraphs) {
 }
 
 /// Texte d'un paragraphe ; les retours à la ligne deviennent des `<w:br/>`.
-void _runs(XmlBuilder b, String text, {required bool muted}) {
+void _runs(XmlBuilder b, String text, {required bool muted, bool bold = false}) {
   b.element('w:r', nest: () {
-    if (muted) {
-      b.element('w:rPr', nest: () => b.element('w:color', attributes: {'w:val': '7A8296'}));
+    if (muted || bold) {
+      b.element('w:rPr', nest: () {
+        if (bold) b.element('w:b');
+        if (muted) b.element('w:color', attributes: {'w:val': '7A8296'});
+      });
     }
     for (final (i, line) in text.split('\n').indexed) {
       if (i > 0) b.element('w:br');
