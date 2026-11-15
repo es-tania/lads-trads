@@ -281,4 +281,32 @@ void main() {
       expect(kindled.last.text.fr, 'FIN DU KINDLED');
     });
   });
+
+  test("sans EN.docx, l'histoire n'a que le français, sans avertissement", () {
+    final fr = [
+      p('Into The Canvas (Memoria)', h1: true),
+      p('ÉPISODE 1', h1: true),
+      p('Rafayel : Salut.'),
+      p('Moi : (Il sourit.)'),
+      p('Choix:'),
+      p('Réussite !', list: true),
+      p('Rafayel : Bravo.'),
+      p('---'),
+      p('Il part.'),
+    ];
+    final s = parseStoryParagraphs(fr: fr);
+    expect(s.warnings, isEmpty);
+    expect(s.title.fr, 'Into The Canvas');
+    expect(s.title.en, isEmpty);
+    expect(s.subtitle, 'Memoria');
+    final part = s.parts.single;
+    expect(part.title.fr, 'ÉPISODE 1');
+    expect(part.allLines.map((l) => (l.kind, l.speaker?.fr, l.text.fr, l.text.en)), [
+      (LineKind.dialogue, 'Rafayel', 'Salut.', ''),
+      (LineKind.thought, 'Moi', '(Il sourit.)', ''),
+      (LineKind.dialogue, 'Rafayel', 'Bravo.', ''),
+      (LineKind.narration, null, 'Il part.', ''),
+    ]);
+    expect((part.items[2] as Choice).options.single.label.fr, 'Réussite !');
+  });
 }

@@ -4,9 +4,9 @@ import 'aligner.dart';
 import 'docx_reader.dart';
 import 'story_model.dart';
 
-/// Lit FR.docx et EN.docx et construit l'histoire bilingue.
-ParsedStory parseStoryDocx({required Uint8List fr, required Uint8List en}) =>
-    parseStoryParagraphs(fr: readDocxParagraphs(fr), en: readDocxParagraphs(en));
+/// Lit FR.docx et, s'il est fourni, EN.docx, et construit l'histoire.
+ParsedStory parseStoryDocx({required Uint8List fr, Uint8List? en}) =>
+    parseStoryParagraphs(fr: readDocxParagraphs(fr), en: en == null ? null : readDocxParagraphs(en));
 
 /// Nature d'un paragraphe, dans une seule langue.
 enum ParaKind { empty, heading, separator, choicePrompt, choiceOption, dialogue, thought, narration }
@@ -124,17 +124,21 @@ List<_Kept> _keepMeaningful(List<DocParagraph> paragraphs) {
   return kept;
 }
 
-/// Construit l'histoire à partir des paragraphes FR et EN.
+/// Construit l'histoire à partir des paragraphes FR et, s'il y en a, EN.
 ///
 /// Les lignes utiles des deux fichiers (voir [_keepMeaningful]) sont mises en
 /// correspondance par [alignLines]. La structure (parties, choix) suit le FR.
-ParsedStory parseStoryParagraphs({required List<DocParagraph> fr, required List<DocParagraph> en}) {
+/// Sans EN ([en] `null`), l'histoire n'a que le français, sans avertissement
+/// sur l'anglais manquant.
+ParsedStory parseStoryParagraphs({required List<DocParagraph> fr, List<DocParagraph>? en}) {
   final warnings = <ImportWarning>[];
   final untranslated = <EnOnlyLine>[];
-  final frOnly = _FrOnlyRuns();
+  final frOnly = _FrOnlyRuns(enabled: en != null);
   final keptFr = _keepMeaningful(fr);
-  final keptEn = _keepMeaningful(en);
-  final pairs = alignLines([for (final k in keptFr) k.info], [for (final k in keptEn) k.info]);
+  final keptEn = en == null ? const <_Kept>[] : _keepMeaningful(en);
+  final pairs = en == null
+      ? [for (var i = 0; i < keptFr.length; i++) AlignedPair(i, null)]
+      : alignLines([for (final k in keptFr) k.info], [for (final k in keptEn) k.info]);
   final b = _Builder(warnings);
   var first = true;
 
@@ -214,12 +218,17 @@ String _short(String s) => s.length <= 40 ? s : '${s.substring(0, 40)}…';
 /// C'est souvent un passage absent de l'EN.docx : ta traduction reste
 /// affichée, seule la référence anglaise manque.
 class _FrOnlyRuns {
+  _FrOnlyRuns({required this.enabled});
+
+  /// Faux sans fichier EN : l'absence d'anglais est voulue.
+  final bool enabled;
   int? _first;
   int? _last;
   String _firstText = '';
   var _count = 0;
 
   void add(int paragraph, String text) {
+    if (!enabled) return;
     if (_first == null) {
       _first = paragraph;
       _firstText = text;

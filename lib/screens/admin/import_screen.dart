@@ -23,7 +23,7 @@ class _Picked {
 
 /// Analyse dans un isolat séparé : une longue histoire (Myths) peut prendre
 /// une seconde, l'interface reste fluide pendant ce temps.
-ParsedStory _parseInBackground((Uint8List, Uint8List) files) => parseStoryDocx(fr: files.$1, en: files.$2);
+ParsedStory _parseInBackground((Uint8List, Uint8List?) files) => parseStoryDocx(fr: files.$1, en: files.$2);
 
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key, this.characterId, this.replaceStoryId});
@@ -83,6 +83,12 @@ class _ImportScreenState extends State<ImportScreen> {
     await _parse();
   }
 
+  /// Retire l'anglais choisi : l'histoire est relue sans lui.
+  Future<void> _removeEnglish() async {
+    setState(() => _en = null);
+    await _parse();
+  }
+
   Future<void> _pickCover() async {
     final picked = await _pick(image: true);
     if (picked == null || !mounted) return;
@@ -105,15 +111,16 @@ class _ImportScreenState extends State<ImportScreen> {
   }
 
   Future<void> _parse() async {
+    // Le français suffit ; l'anglais, s'il est là, est aligné dessus.
     final fr = _fr;
     final en = _en;
-    if (fr == null || en == null) return;
+    if (fr == null) return;
     setState(() {
       _parsing = true;
       _error = null;
     });
     try {
-      final parsed = await compute(_parseInBackground, (fr.bytes, en.bytes));
+      final parsed = await compute(_parseInBackground, (fr.bytes, en?.bytes));
       if (!mounted) return;
       setState(() {
         _parsed = parsed;
@@ -250,7 +257,7 @@ class _ImportScreenState extends State<ImportScreen> {
                         const InkSectionLabel('Classement'),
                         _classification(characters, choices),
                       ],
-                      if (_parsed != null) ...[const SizedBox(height: 24), _Checks(parsed: _parsed!)],
+                      if (_parsed != null) ...[const SizedBox(height: 24), _Checks(parsed: _parsed!, withEnglish: _en != null)],
                     ],
                   ),
                 ),
@@ -275,7 +282,9 @@ class _ImportScreenState extends State<ImportScreen> {
       frInfo = enInfo = 'Lecture…';
     } else if (parsed != null) {
       frInfo = '$lines répliques · ${parsed.parts.length} parties';
-      enInfo = parsed.untranslated.isEmpty ? 'aligné' : 'aligné · ${parsed.untranslated.length} lignes du jeu ignorées';
+      if (_en != null) {
+        enInfo = parsed.untranslated.isEmpty ? 'aligné' : 'aligné · ${parsed.untranslated.length} lignes du jeu ignorées';
+      }
     }
 
     return InkGroup(
@@ -290,10 +299,12 @@ class _ImportScreenState extends State<ImportScreen> {
         _FileRow(
           badge: const _Badge('EN'),
           title: 'Texte anglais',
-          subtitle: 'pour la synchro',
-          detail: _en == null ? 'Choisir EN.docx' : [_en!.name, ?enInfo].join(' · '),
+          subtitle: 'facultatif',
+          detail: _en == null ? 'Sans anglais · choisir EN.docx' : [_en!.name, ?enInfo].join(' · '),
           onTap: () => _pickDocx(french: false),
           changeLabel: _en == null ? 'Choisir' : 'Changer',
+          extraLabel: _en == null ? null : 'Retirer',
+          onExtra: _removeEnglish,
         ),
         if (!widget.replacing)
           _FileRow(
@@ -498,9 +509,10 @@ class _FileRow extends StatelessWidget {
 
 /// Section « À vérifier » : avertissements du parseur.
 class _Checks extends StatelessWidget {
-  const _Checks({required this.parsed});
+  const _Checks({required this.parsed, required this.withEnglish});
 
   final ParsedStory parsed;
+  final bool withEnglish;
 
   @override
   Widget build(BuildContext context) {
@@ -510,7 +522,7 @@ class _Checks extends StatelessWidget {
       children: [
         InkSectionLabel(warnings.isEmpty ? 'À vérifier' : 'À vérifier · ${warnings.length}'),
         if (warnings.isEmpty)
-          const InkComingSoon(text: 'Rien à signaler : FR et EN sont alignés.')
+          InkComingSoon(text: withEnglish ? 'Rien à signaler : FR et EN sont alignés.' : 'Rien à signaler.')
         else
           InkGroup(
             children: [
