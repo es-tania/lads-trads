@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -9,6 +10,7 @@ import '../../data/models.dart';
 import '../../data/services.dart';
 import '../../theme/ink.dart';
 import '../../widgets/cover.dart';
+import '../../widgets/image_crop.dart';
 import '../../widgets/ink_widgets.dart';
 import 'export_sheet.dart';
 import 'folder_choice.dart';
@@ -51,6 +53,11 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
   Uint8List? _coverBytes;
   String? _coverName;
   var _coverRemoved = false;
+
+  /// Cadrage choisi pour la couverture (nouvelle ou actuelle), pas encore
+  /// enregistré.
+  ImageCrop? _coverCrop;
+  var _cropChanged = false;
   var _saving = false;
 
   @override
@@ -78,21 +85,46 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
     if (file == null) return;
     final bytes = await file.readAsBytes();
     if (!mounted) return;
+    // On cadre tout de suite la nouvelle image ; annuler la laisse de côté.
+    final crop = await showCoverCropSheet(context, image: _memoryImage(bytes));
+    if (crop == null || !mounted) return;
     setState(() {
       _coverBytes = bytes;
       _coverName = file.name;
       _coverRemoved = false;
+      _coverCrop = crop;
+      _cropChanged = true;
     });
   }
+
+  /// Recadre la couverture affichée (nouvelle ou actuelle).
+  Future<void> _recrop(Story story) async {
+    final bytes = _coverBytes;
+    final ImageProvider image = bytes != null ? _memoryImage(bytes) : ResizeImage(FileImage(File(story.coverPath!)), width: 1024);
+    final crop = await showCoverCropSheet(context, image: image, initial: _coverCrop ?? story.coverCrop);
+    if (crop == null || !mounted) return;
+    setState(() {
+      _coverCrop = crop;
+      _cropChanged = true;
+    });
+  }
+
+  static ImageProvider _memoryImage(Uint8List bytes) => ResizeImage(MemoryImage(bytes), width: 1024);
 
   void _removeCover() => setState(() {
         _coverBytes = null;
         _coverName = null;
         _coverRemoved = true;
+        _coverCrop = null;
+        _cropChanged = false;
       });
 
   bool get _dirty =>
-      _title.text.trim() != _originalTitle || _folderKey != _originalFolderKey || _coverBytes != null || _coverRemoved;
+      _title.text.trim() != _originalTitle ||
+      _folderKey != _originalFolderKey ||
+      _coverBytes != null ||
+      _coverRemoved ||
+      _cropChanged;
 
   Future<void> _save(List<FolderChoice> choices) async {
     final choice = choices.where((c) => c.key == _folderKey).firstOrNull;
@@ -105,9 +137,11 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
       final folderId = choice.id ?? await library.folderFor(characterId, choice.type, rarity: choice.rarity);
       await library.updateStory(id, title: _title.text, folderId: folderId);
       if (_coverBytes != null) {
-        await library.setCover(id, _coverBytes!, _coverName ?? 'cover.png');
+        await library.setCover(id, _coverBytes!, _coverName ?? 'cover.png', crop: _coverCrop);
       } else if (_coverRemoved) {
         await library.removeCover(id);
+      } else if (_cropChanged && _coverCrop != null) {
+        await library.setCoverCrop(id, _coverCrop!);
       }
       if (!mounted) return;
       showStepSnack(context, 'Fiche enregistrée.');
@@ -286,12 +320,15 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
   Widget _coverSection(Story story) {
     final Widget cover;
     if (_coverBytes != null) {
-      cover = ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.memory(_coverBytes!, fit: BoxFit.cover, cacheWidth: 360),
+      cover = CroppedImage(
+        image: _memoryImage(_coverBytes!),
+        crop: _coverCrop ?? ImageCrop.full,
+        radius: 12,
+        placeholder: const CoverPlaceholder(label: null),
       );
     } else {
-      cover = StoryCover(cover: _coverRemoved ? null : story.cover, emptyLabel: null, decodeWidth: 360);
+      final current = story.coverPath == null || _coverRemoved ? null : CoverImage(story.coverPath!, _coverCrop ?? story.coverCrop);
+      cover = StoryCover(cover: current, emptyLabel: null, decodeWidth: 360);
     }
     final hasCover = _coverBytes != null || (!_coverRemoved && story.coverPath != null);
 
@@ -317,10 +354,23 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
               ),
               if (hasCover) ...[
                 const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _saving ? null : _removeCover,
-                  style: TextButton.styleFrom(minimumSize: const Size(44, 32)),
-                  child: const Text('Retirer'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: _saving ? null : () => _recrop(story),
+                        style: TextButton.styleFrom(minimumSize: const Size(44, 32)),
+                        child: const Text('Recadrer'),
+                      ),
+                    ),
+                    Expanded(
+                      child: TextButton(
+                        onPressed: _saving ? null : _removeCover,
+                        style: TextButton.styleFrom(minimumSize: const Size(44, 32)),
+                        child: const Text('Retirer'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
               const SizedBox(height: 8),

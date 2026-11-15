@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
@@ -502,6 +503,56 @@ void main() {
     expect(target.saved.single, ['Into The Canvas - FR.docx', 'Into The Canvas - EN.docx']);
     expect(find.text('2 fichiers enregistrés.'), findsOneWidget);
     expect(find.text('Télécharger'), findsNothing, reason: 'le panneau se ferme');
+  });
+
+  Future<Uint8List> png(int w, int h) async {
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = const Color(0xFF336699));
+    final image = await recorder.endRecording().toImage(w, h);
+    return (await image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
+  }
+
+  testWidgets('La fiche recadre la couverture : cadre 3:4 et curseur de taille', (tester) async {
+    await start(tester);
+    final id = (await tester.runAsync(() async {
+      final story = (await library.searchStories('canvas')).single;
+      await library.setCover(story.id, await png(400, 300), 'cover.png');
+      return story.id;
+    }))!;
+    await enterAdmin(tester);
+    await tester.tap(find.text('Into The Canvas').first);
+    await _settle(tester);
+    await tester.tap(find.text('Modifier'));
+    await _settle(tester);
+
+    await tester.tap(find.text('Recadrer'));
+    await _settleUntil(tester, find.bySemanticsLabel('Taille du cadre'));
+    expect(find.text('Cadrer la couverture'), findsOneWidget);
+    expect(find.bySemanticsLabel('Taille du cadre'), findsOneWidget);
+
+    // Curseur tout à gauche : le cadre le plus petit.
+    final slider = find.byType(Slider);
+    await tester.tapAt(tester.getTopLeft(slider) + Offset(4, tester.getSize(slider).height / 2));
+    await _settle(tester);
+    await tester.tap(find.text('Valider'));
+    await _settle(tester);
+    await tester.tap(find.text('Enregistrer'));
+    await _settle(tester);
+
+    final crop = (await tester.runAsync(() => library.story(id)))!.coverCrop!;
+    expect(crop.d, lessThan(0.4));
+  });
+
+  testWidgets('Le cercle du personnage a aussi un curseur de taille', (tester) async {
+    await start(tester);
+    await tester.runAsync(() async {
+      final zayne = (await library.characters())[2];
+      await library.setCharacterImage(zayne.id, await png(300, 400), 'zayne.png');
+    });
+    await openCharacters(tester);
+    await tester.tap(find.text('Zayne'));
+    await _settleUntil(tester, find.bySemanticsLabel('Taille du cadre'));
+    expect(find.bySemanticsLabel('Taille du cadre'), findsOneWidget);
   });
 }
 

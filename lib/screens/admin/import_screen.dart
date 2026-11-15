@@ -9,6 +9,7 @@ import '../../docx/docx_reader.dart';
 import '../../docx/story_model.dart';
 import '../../docx/story_parser.dart';
 import '../../theme/ink.dart';
+import '../../widgets/image_crop.dart';
 import '../../widgets/ink_widgets.dart';
 import 'folder_choice.dart';
 
@@ -44,6 +45,7 @@ class _ImportScreenState extends State<ImportScreen> {
   _Picked? _fr;
   _Picked? _en;
   _Picked? _cover;
+  ImageCrop _coverCrop = ImageCrop.full;
   ParsedStory? _parsed;
   String? _error;
   var _parsing = false;
@@ -83,7 +85,23 @@ class _ImportScreenState extends State<ImportScreen> {
 
   Future<void> _pickCover() async {
     final picked = await _pick(image: true);
-    if (picked != null && mounted) setState(() => _cover = picked);
+    if (picked == null || !mounted) return;
+    // On cadre tout de suite la couverture ; annuler la laisse de côté.
+    final crop = await showCoverCropSheet(context, image: _coverImage(picked.bytes));
+    if (crop == null || !mounted) return;
+    setState(() {
+      _cover = picked;
+      _coverCrop = crop;
+    });
+  }
+
+  static ImageProvider _coverImage(Uint8List bytes) => ResizeImage(MemoryImage(bytes), width: 1024);
+
+  Future<void> _recropCover() async {
+    final cover = _cover;
+    if (cover == null) return;
+    final crop = await showCoverCropSheet(context, image: _coverImage(cover.bytes), initial: _coverCrop);
+    if (crop != null && mounted) setState(() => _coverCrop = crop);
   }
 
   Future<void> _parse() async {
@@ -137,6 +155,7 @@ class _ImportScreenState extends State<ImportScreen> {
         parsed: parsed,
         coverBytes: _cover?.bytes,
         coverName: _cover?.name,
+        coverCrop: _cover == null ? null : _coverCrop,
       );
       if (!mounted) return;
       showStepSnack(context, 'Histoire importée.');
@@ -282,13 +301,23 @@ class _ImportScreenState extends State<ImportScreen> {
                 ? const _Badge(null)
                 : ClipRRect(
                     borderRadius: BorderRadius.circular(4),
-                    child: Image.memory(_cover!.bytes, width: 30, height: 40, fit: BoxFit.cover, cacheWidth: 90),
+                    child: SizedBox(
+                      width: 30,
+                      height: 40,
+                      child: CroppedImage(
+                        image: _coverImage(_cover!.bytes),
+                        crop: _coverCrop,
+                        placeholder: const SizedBox.shrink(),
+                      ),
+                    ),
                   ),
             title: 'Couverture',
             subtitle: 'facultative',
             detail: _cover?.name ?? 'Choisir une image',
-            onTap: _pickCover,
-            changeLabel: _cover == null ? 'Choisir' : 'Changer',
+            onTap: _cover == null ? _pickCover : _recropCover,
+            changeLabel: _cover == null ? 'Choisir' : 'Recadrer',
+            extraLabel: _cover == null ? null : 'Changer',
+            onExtra: _pickCover,
           ),
       ],
     );
@@ -400,7 +429,13 @@ class _FileRow extends StatelessWidget {
     required this.onTap,
     required this.changeLabel,
     this.subtitle,
+    this.extraLabel,
+    this.onExtra,
   });
+
+  /// Deuxième action (« Changer » à côté de « Recadrer »).
+  final String? extraLabel;
+  final VoidCallback? onExtra;
 
   final Widget badge;
   final String title;
@@ -449,6 +484,11 @@ class _FileRow extends StatelessWidget {
               onPressed: onTap,
               child: Text(changeLabel, style: const TextStyle(fontSize: 14)),
             ),
+            if (extraLabel != null)
+              TextButton(
+                onPressed: onExtra,
+                child: Text(extraLabel!, style: const TextStyle(fontSize: 14)),
+              ),
           ],
         ),
       ),
