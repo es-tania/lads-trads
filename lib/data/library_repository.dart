@@ -306,13 +306,37 @@ class LibraryRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Change seulement le texte d'une ligne (depuis la fenêtre flottante).
-  Future<void> updateLineText(int lineId, String text) async {
+  /// Change le texte et le personnage d'une ligne pendant la lecture (depuis
+  /// la fenêtre flottante). La note est gardée.
+  ///
+  /// [speaker] `null` : la ligne devient une narration. Une narration qui
+  /// reçoit un personnage devient une réplique ; une pensée reste une pensée.
+  /// Renvoie le type obtenu.
+  Future<LineRowKind> updateLineWhileReading(int lineId, {required String text, required String? speaker}) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) throw ArgumentError.value(text, 'text', 'Texte vide');
-    await _db.update('lines', {'text': trimmed}, where: 'id = ?', whereArgs: [lineId]);
+    final row = (await _db.query('lines', where: 'id = ?', whereArgs: [lineId])).single;
+    final kind = LineRowKind.fromName(row['kind']! as String);
+    _checkSpoken(kind);
+    final who = _clean(speaker);
+    final newKind = kindForSpeaker(kind, who);
+    final speakerEn = who == row['speaker'] ? row['speaker_en'] : await _speakerEn(row['part_id']! as int, who);
+    await _db.update(
+      'lines',
+      {'kind': newKind.name, 'text': trimmed, 'speaker': who, 'speaker_en': speakerEn},
+      where: 'id = ?',
+      whereArgs: [lineId],
+    );
     notifyListeners();
+    return newKind;
   }
+
+  /// Type d'une ligne quand son personnage change (voir [updateLineWhileReading]).
+  static LineRowKind kindForSpeaker(LineRowKind kind, String? speaker) => switch ((kind, speaker)) {
+        (_, null) => LineRowKind.narration,
+        (LineRowKind.narration, _) => LineRowKind.dialogue,
+        _ => kind,
+      };
 
   /// La base a été modifiée ailleurs (par la fenêtre flottante) : les
   /// écrans rechargent leurs données.

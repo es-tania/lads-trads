@@ -32,7 +32,7 @@ class FakeHost implements OverlayHost {
 
   /// Clavier demandé (vrai) puis rendu au jeu (faux).
   final keyboard = <bool>[];
-  final saved = <(int, String)>[];
+  final saved = <(int, String, String?)>[];
   Object? saveError;
 
   /// Comme le vrai service quand rien ne répond : le Future ne finit jamais.
@@ -42,10 +42,11 @@ class FakeHost implements OverlayHost {
   Future<void> setKeyboard(bool enabled) async => keyboard.add(enabled);
 
   @override
-  Future<void> saveLineText(int lineId, String text) async {
-    if (saveHangs) return Completer<void>().future;
+  Future<String> saveLine(int lineId, {required String text, required String? speaker}) async {
+    if (saveHangs) return Completer<String>().future;
     if (saveError != null) throw saveError!;
-    saved.add((lineId, text));
+    saved.add((lineId, text, speaker));
+    return speaker == null ? 'narration' : 'dialogue';
   }
 
   @override
@@ -87,7 +88,8 @@ final parts = [
   ]),
 ];
 
-Map<String, Object?> load({int id = 1, bool admin = false}) => OverlayMessages.loadMessage(
+Map<String, Object?> load({int id = 1, bool admin = false, List<String> speakers = const ['Rafayel', 'Moi']}) =>
+    OverlayMessages.loadMessage(
       id: id,
       storyTitle: 'Into The Canvas',
       parts: parts,
@@ -95,13 +97,14 @@ Map<String, Object?> load({int id = 1, bool admin = false}) => OverlayMessages.l
       opacity: 0.85,
       fontSize: 15,
       admin: admin,
+      speakers: speakers,
     );
 
 void main() {
   late FakeHost host;
 
   Future<void> start(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1122, 600);
+    tester.view.physicalSize = const Size(1122, 1500);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     host = FakeHost();
@@ -260,7 +263,7 @@ void main() {
     await tester.tap(find.text('Enregistrer'));
     await tester.pumpAndSettle();
 
-    expect(host.saved, [(10, 'Les couleurs sont prêtes, vas-y.')]);
+    expect(host.saved, [(10, 'Les couleurs sont prêtes, vas-y.', 'Rafayel')]);
     expect(host.keyboard, [true, false], reason: 'le clavier est rendu au jeu');
     expect(find.text('Les couleurs sont prêtes, vas-y.'), findsOneWidget);
     expect(find.text('Kindled · L.001/003'), findsOneWidget, reason: 'même position de lecture');
@@ -308,5 +311,48 @@ void main() {
     await tester.pump(const Duration(seconds: 9));
     expect(find.text("L'enregistrement ne répond pas. Réessaie."), findsOneWidget);
     expect(find.text('Enregistrer'), findsOneWidget, reason: 'on peut réessayer');
+  });
+
+  testWidgets('en mode admin, on corrige aussi qui parle', (tester) async {
+    await start(tester);
+    host.controller.add(load(admin: true));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+
+    // Un personnage existant.
+    await tester.tap(find.text('Moi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Modifier · Moi'), findsOneWidget);
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(host.saved.last, (10, 'Les couleurs sont prêtes.', 'Moi'));
+    expect(find.text('Moi'), findsOneWidget, reason: 'la fenêtre affiche le nouveau personnage');
+
+    // Un nouveau personnage, créé depuis la fenêtre.
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('+ Autre'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText).first, 'Zayne');
+    await tester.pump();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.text('Modifier · Zayne'), findsOneWidget);
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(host.saved.last, (10, 'Les couleurs sont prêtes.', 'Zayne'));
+    expect(find.text('Zayne'), findsOneWidget);
+
+    // Narration : plus de personnage.
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    expect(find.text('Zayne'), findsOneWidget, reason: 'le nouveau personnage reste proposé');
+    await tester.tap(find.text('Narration'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(host.saved.last, (10, 'Les couleurs sont prêtes.', null));
+    expect(find.text('Zayne'), findsNothing);
   });
 }

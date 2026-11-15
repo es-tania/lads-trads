@@ -66,9 +66,18 @@ class _OverlayScreenState extends State<OverlayScreen> {
   /// Mode admin : un crayon permet de corriger la réplique affichée.
   bool _admin = false;
 
+  /// Personnages de l'histoire, proposés pour corriger qui parle.
+  List<String> _speakers = const [];
+
   /// Réplique en cours de modification, `null` en lecture.
   PlayLine? _editing;
   final _editText = TextEditingController();
+
+  /// Personnage choisi pendant la modification (`null` : narration).
+  String? _editSpeaker;
+
+  /// Saisie d'un nouveau personnage (« + Autre »), `null` si fermée.
+  TextEditingController? _newSpeaker;
   String? _editError;
   var _savingEdit = false;
 
@@ -113,6 +122,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
   void dispose() {
     _sub?.cancel();
     _editText.dispose();
+    _newSpeaker?.dispose();
     super.dispose();
   }
 
@@ -130,6 +140,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
           _loadedId = id;
           _playback = Playback(parts, part: (message['startPart'] as int?) ?? 0);
           _admin = message['admin'] == true;
+          _speakers = [for (final s in message['speakers'] as List<Object?>? ?? const []) s! as String];
           _applySettings(message);
           _reportedHeight = 0;
         });
@@ -162,6 +173,8 @@ class _OverlayScreenState extends State<OverlayScreen> {
       _editing = line;
       _editError = null;
       _editText.text = line.text;
+      _editSpeaker = line.isNarration ? null : line.speaker;
+      _closeNewSpeaker();
     });
     // Le temps de la modification, la fenêtre reçoit le clavier.
     await host.setKeyboard(true);
@@ -171,8 +184,30 @@ class _OverlayScreenState extends State<OverlayScreen> {
     setState(() {
       _editing = null;
       _savingEdit = false;
+      _closeNewSpeaker();
     });
     await host.setKeyboard(false);
+  }
+
+  void _closeNewSpeaker() {
+    _newSpeaker?.dispose();
+    _newSpeaker = null;
+  }
+
+  /// « + Autre » : un champ pour un personnage absent de la liste.
+  void _openNewSpeaker() => setState(() {
+        _closeNewSpeaker();
+        _newSpeaker = TextEditingController();
+      });
+
+  void _confirmNewSpeaker() {
+    final name = _newSpeaker?.text.trim() ?? '';
+    if (name.isEmpty) return;
+    setState(() {
+      if (!_speakers.contains(name)) _speakers = [..._speakers, name];
+      _editSpeaker = name;
+      _closeNewSpeaker();
+    });
   }
 
   Future<void> _saveEditing() async {
@@ -186,8 +221,9 @@ class _OverlayScreenState extends State<OverlayScreen> {
     try {
       // Une écriture ne prend qu'un instant : au-delà, on le dit plutôt que
       // de laisser « Enregistrement… » affiché indéfiniment.
-      await host.saveLineText(line!.id!, text).timeout(const Duration(seconds: 8));
-      _playback?.updateText(line.id!, text);
+      final speaker = _editSpeaker;
+      final kind = await host.saveLine(line!.id!, text: text, speaker: speaker).timeout(const Duration(seconds: 8));
+      _playback?.updateLine(line.id!, text: text, speaker: speaker, kind: kind);
       await _stopEditing();
     } on Object catch (e) {
       if (!mounted) return;
@@ -246,7 +282,18 @@ class _OverlayScreenState extends State<OverlayScreen> {
                   ? const _Waiting()
                   : !reading
                       ? _EditView(
-                          line: editing,
+                          speakers: [
+                            ..._speakers,
+                            if (editing.speaker != null && !_speakers.contains(editing.speaker)) editing.speaker!,
+                          ],
+                          speaker: _editSpeaker,
+                          onSpeaker: (s) => setState(() {
+                            _editSpeaker = s;
+                            _closeNewSpeaker();
+                          }),
+                          newSpeaker: _newSpeaker,
+                          onOther: _openNewSpeaker,
+                          onConfirmOther: _confirmNewSpeaker,
                           controller: _editText,
                           fontSize: _fontSize,
                           error: _editError,
@@ -506,7 +553,12 @@ class _StepView extends StatelessWidget {
 /// Correction de la réplique affichée, sans quitter le jeu.
 class _EditView extends StatelessWidget {
   const _EditView({
-    required this.line,
+    required this.speakers,
+    required this.speaker,
+    required this.onSpeaker,
+    required this.newSpeaker,
+    required this.onOther,
+    required this.onConfirmOther,
     required this.controller,
     required this.fontSize,
     required this.error,
@@ -515,7 +567,16 @@ class _EditView extends StatelessWidget {
     required this.onSave,
   });
 
-  final PlayLine line;
+  final List<String> speakers;
+
+  /// Personnage choisi, `null` pour une narration.
+  final String? speaker;
+  final ValueChanged<String?> onSpeaker;
+
+  /// Champ « + Autre » ouvert, ou `null`.
+  final TextEditingController? newSpeaker;
+  final VoidCallback onOther;
+  final VoidCallback onConfirmOther;
   final TextEditingController controller;
   final double fontSize;
   final String? error;
@@ -530,18 +591,62 @@ class _EditView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          line.speaker == null ? 'Modifier la narration' : 'Modifier · ${line.speaker}',
+          speaker == null ? 'Modifier · narration' : 'Modifier · $speaker',
           style: TextStyle(
             fontSize: 12,
             height: 16 / 12,
             fontWeight: FontWeight.w500,
-            color: line.speaker == null ? InkColors.textMuted : InkColors.forSpeaker(line.speaker!),
+            color: speaker == null ? InkColors.textMuted : InkColors.forSpeaker(speaker!),
           ),
         ),
         const SizedBox(height: 6),
+        // Qui parle : tout reste visible, les puces passent à la ligne.
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final name in speakers)
+              _SpeakerChip(label: name, dot: InkColors.forSpeaker(name), selected: name == speaker, onTap: () => onSpeaker(name)),
+            _SpeakerChip(label: 'Narration', selected: speaker == null, onTap: () => onSpeaker(null)),
+            _SpeakerChip(label: '+ Autre', selected: newSpeaker != null, dashed: true, onTap: onOther),
+          ],
+        ),
+        if (newSpeaker != null) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: newSpeaker,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => onConfirmOther(),
+                  style: const TextStyle(fontSize: 14),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'Nom du personnage',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    fillColor: InkColors.surface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              ListenableBuilder(
+                listenable: newSpeaker!,
+                builder: (context, _) => TextButton(
+                  onPressed: newSpeaker!.text.trim().isEmpty ? null : onConfirmOther,
+                  style: TextButton.styleFrom(minimumSize: const Size(44, 32), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                  child: const Text('OK'),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 6),
         TextField(
           controller: controller,
-          autofocus: true,
+          autofocus: newSpeaker == null,
           minLines: 2,
           maxLines: 5,
           textCapitalization: TextCapitalization.sentences,
@@ -582,6 +687,53 @@ class _EditView extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Puce d'un personnage dans la fenêtre (choix de qui parle).
+class _SpeakerChip extends StatelessWidget {
+  const _SpeakerChip({required this.label, required this.selected, required this.onTap, this.dot, this.dashed = false});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color? dot;
+  final bool dashed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? InkColors.raised : const Color(0x00000000),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: selected ? InkColors.accent : (dashed ? InkColors.borderStrong : const Color(0x1AEEF0F5))),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          child: Container(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (dot != null) ...[
+                  Container(width: 6, height: 6, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+                  const SizedBox(width: 6),
+                ],
+                Text(label, style: TextStyle(fontSize: 13, color: selected ? InkColors.text : InkColors.textMuted)),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

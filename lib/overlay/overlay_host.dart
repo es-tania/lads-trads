@@ -31,8 +31,10 @@ abstract class OverlayHost {
   /// le rend au jeu.
   Future<void> setKeyboard(bool enabled);
 
-  /// Enregistre le nouveau texte d'une ligne dans la base du téléphone.
-  Future<void> saveLineText(int lineId, String text);
+  /// Enregistre le texte et le personnage d'une ligne dans la base du
+  /// téléphone ([speaker] `null` : narration). Renvoie le type obtenu
+  /// (« dialogue », « thought » ou « narration »).
+  Future<String> saveLine(int lineId, {required String text, required String? speaker});
 
   /// Messages envoyés par l'app.
   Stream<Object?> get messages;
@@ -91,12 +93,18 @@ class PluginOverlayHost implements OverlayHost {
   /// La fenêtre écrit elle-même dans la base : l'app est peut-être fermée
   /// pendant la lecture. Si elle est ouverte, elle est prévenue.
   @override
-  Future<void> saveLineText(int lineId, String text) async {
+  Future<String> saveLine(int lineId, {required String text, required String? speaker}) async {
     final library = _library ??= await openDeviceLibrary();
-    await library.updateLineText(lineId, text);
+    final kind = (await library.updateLineWhileReading(lineId, text: text, speaker: speaker)).name;
     // Sans attendre : le service ne répond jamais à un message de la
     // fenêtre vers l'app (voir [send]).
-    unawaited(send(OverlayMessages.editedMessage(lineId: lineId, text: text.trim())));
+    unawaited(send(OverlayMessages.editedMessage(
+      lineId: lineId,
+      text: text.trim(),
+      speaker: speaker?.trim().isEmpty ?? true ? null : speaker!.trim(),
+      kind: kind,
+    )));
+    return kind;
   }
 
   // Le flux du plugin ne peut être écouté qu'une fois : on le partage.

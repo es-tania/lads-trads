@@ -88,7 +88,7 @@ void main() {
     expect(p.current!.line!.text, 'dommage');
   });
 
-  test('updateText corrige une ligne du tronc ou d\'une branche sans bouger la lecture', () {
+  test('updateLine corrige une ligne du tronc ou d\'une branche sans bouger la lecture', () {
     final parts = [
       PlayPart(title: 'KINDLED', items: [
         PlayItem.line(const PlayLine(kind: 'dialogue', text: 'c', speaker: 'Rafayel', id: 1)),
@@ -103,14 +103,15 @@ void main() {
     expect(p.current!.line!.text, 'bravo');
 
     p
-      ..updateText(2, 'Bravo !')
-      ..updateText(1, 'C.');
+      ..updateLine(2, text: 'Bravo !', speaker: 'Zayne', kind: 'dialogue')
+      ..updateLine(1, text: 'C.', speaker: null, kind: 'narration');
     expect(p.current!.line!.text, 'Bravo !');
-    expect(p.current!.line!.speaker, 'Rafayel');
+    expect(p.current!.line!.speaker, 'Zayne');
     expect(p.branchLetter, 'A');
     p.previous();
     p.previous();
     expect(p.current!.line!.text, 'C.');
+    expect(p.current!.line!.isNarration, isTrue);
     expect(parts.first.items.first.line!.text, 'c', reason: 'la liste reçue n\'est pas modifiée');
   });
 

@@ -92,6 +92,7 @@ class OverlayLauncher {
       opacity: settings.opacity,
       fontSize: settings.textSize.fontSize,
       admin: admin,
+      speakers: admin ? await library.speakers(storyId) : const [],
     );
 
     if (!await FlutterOverlayWindow.isActive()) {
@@ -132,11 +133,15 @@ class OverlayLauncher {
     final load = _lastLoad;
     final id = message['lineId'] as int?;
     final text = message['text'] as String?;
-    if (load == null || id == null || text == null) return;
+    final kind = message['kind'] as String?;
+    if (load == null || id == null || text == null || kind == null) return;
+    final speaker = message['speaker'] as String?;
     final playback = Playback([
       for (final p in load['parts']! as List<Object?>) PlayPart.fromJson(p! as Map<Object?, Object?>),
-    ])..updateText(id, text);
-    _lastLoad = {...load, 'parts': [for (final p in playback.parts) p.toJson()]};
+    ])..updateLine(id, text: text, speaker: speaker, kind: kind);
+    final speakers = [...(load['speakers'] as List<Object?>? ?? const []).cast<String>()];
+    if (speaker != null && !speakers.contains(speaker)) speakers.add(speaker);
+    _lastLoad = {...load, 'parts': [for (final p in playback.parts) p.toJson()], 'speakers': speakers};
   }
 
   /// Réglage changé dans l'app : la fenêtre ouverte le prend en compte tout de suite.

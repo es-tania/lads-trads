@@ -12,8 +12,14 @@ abstract final class OverlayMessages {
   static const settings = 'settings';
   static const edited = 'edited';
 
-  static Map<String, Object?> editedMessage({required int lineId, required String text}) =>
-      {'type': edited, 'lineId': lineId, 'text': text};
+  /// [speaker] `null` : la ligne est devenue une narration.
+  static Map<String, Object?> editedMessage({
+    required int lineId,
+    required String text,
+    required String? speaker,
+    required String kind,
+  }) =>
+      {'type': edited, 'lineId': lineId, 'text': text, 'speaker': speaker, 'kind': kind};
 
   static Map<String, Object?> readyMessage() => {'type': ready};
 
@@ -28,6 +34,7 @@ abstract final class OverlayMessages {
     required double opacity,
     required double fontSize,
     bool admin = false,
+    List<String> speakers = const [],
   }) =>
       {
         'type': load,
@@ -41,6 +48,8 @@ abstract final class OverlayMessages {
         'fontSize': fontSize,
         // Mode admin : la traductrice peut corriger une réplique en lisant.
         'admin': admin,
+        // Personnages de l'histoire, proposés pour corriger qui parle.
+        'speakers': speakers,
       };
 
   static String? typeOf(Object? message) =>

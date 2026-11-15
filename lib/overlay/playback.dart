@@ -29,7 +29,8 @@ class PlayLine {
         id: json['i'] as int?,
       );
 
-  PlayLine withText(String text) => PlayLine(kind: kind, text: text, speaker: speaker, id: id);
+  PlayLine copyWith({required String text, required String? speaker, required String kind}) =>
+      PlayLine(kind: kind, text: text, speaker: speaker, id: id);
 }
 
 class PlayOption {
@@ -188,10 +189,11 @@ class Playback {
     _index = steps.indexWhere((s) => s.isChoice && s.itemIndex == step.itemIndex);
   }
 
-  /// Remplace le texte de la ligne [id] partout où elle apparaît, sans
-  /// changer la position de lecture.
-  void updateText(int id, String text) {
-    PlayLine fix(PlayLine l) => l.id == id ? l.withText(text) : l;
+  /// Remplace le texte et le personnage de la ligne [id] partout où elle
+  /// apparaît, sans changer la position de lecture. [kind] : son nouveau type
+  /// (« dialogue », « thought » ou « narration »).
+  void updateLine(int id, {required String text, required String? speaker, required String kind}) {
+    PlayLine fix(PlayLine l) => l.id == id ? l.copyWith(text: text, speaker: speaker, kind: kind) : l;
     for (final (p, part) in parts.indexed) {
       parts[p] = PlayPart(title: part.title, items: [
         for (final item in part.items)

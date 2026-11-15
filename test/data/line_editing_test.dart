@@ -139,15 +139,36 @@ void main() {
     expect(await outline(), ['dialogue:Salut.', 'narration:Il sourit.']);
   });
 
-  test('updateLineText change seulement le texte et prévient les écrans', () async {
+  test('pendant la lecture : texte et personnage changent, la note reste', () async {
     final hello = await line('Salut.');
+    await repo.updateLine(hello.id, kind: LineRowKind.dialogue, text: 'Salut.', speaker: 'Rafayel', note: 'à revoir');
     var notified = 0;
     repo.addListener(() => notified++);
-    await repo.updateLineText(hello.id, '  Coucou.  ');
-    final edited = await line('Coucou.');
-    expect((edited.kind, edited.speaker, edited.textEn), (LineRowKind.dialogue, 'Rafayel', 'Hi.'));
-    await expectLater(repo.updateLineText(hello.id, ' '), throwsArgumentError);
+
+    var kind = await repo.updateLineWhileReading(hello.id, text: '  Coucou.  ', speaker: 'Rafayel');
+    var edited = await line('Coucou.');
+    expect((kind, edited.kind, edited.speaker, edited.textEn, edited.note), (LineRowKind.dialogue, LineRowKind.dialogue, 'Rafayel', 'Hi.', 'à revoir'));
+
+    // Mauvais personnage dans la traduction : un nouveau.
+    kind = await repo.updateLineWhileReading(hello.id, text: 'Coucou.', speaker: ' Zayne ');
+    edited = await line('Coucou.');
+    expect((edited.speaker, edited.speakerEn), ('Zayne', null));
+
+    // Plus personne ne parle : narration ; puis à nouveau une réplique.
+    kind = await repo.updateLineWhileReading(hello.id, text: 'Coucou.', speaker: null);
+    expect(((await line('Coucou.')).kind, (await line('Coucou.')).speaker), (LineRowKind.narration, null));
+    kind = await repo.updateLineWhileReading(hello.id, text: 'Coucou.', speaker: 'Rafayel');
+    expect(kind, LineRowKind.dialogue);
+    expect((await line('Coucou.')).speakerEn, 'Rafayel');
+
+    await expectLater(repo.updateLineWhileReading(hello.id, text: ' ', speaker: null), throwsArgumentError);
     repo.refresh();
-    expect(notified, 2);
+    expect(notified, 5);
+  });
+
+  test('une pensée reste une pensée quand son personnage change', () {
+    expect(LibraryRepository.kindForSpeaker(LineRowKind.thought, 'Moi'), LineRowKind.thought);
+    expect(LibraryRepository.kindForSpeaker(LineRowKind.thought, null), LineRowKind.narration);
+    expect(LibraryRepository.kindForSpeaker(LineRowKind.narration, 'Moi'), LineRowKind.dialogue);
   });
 }
