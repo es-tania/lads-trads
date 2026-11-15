@@ -1,9 +1,6 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../data/library_repository.dart';
@@ -11,6 +8,7 @@ import '../../data/models.dart';
 import '../../data/services.dart';
 import '../../theme/ink.dart';
 import '../../widgets/character_avatar.dart';
+import '../../widgets/image_crop.dart';
 import '../../widgets/ink_widgets.dart';
 
 /// Écran admin : image et recadrage de chaque personnage, ajout d'un personnage.
@@ -229,7 +227,7 @@ class _ImageSheetState extends State<_ImageSheet> {
   Uint8List? _pickedBytes;
   String? _pickedName;
   ImageProvider? _image;
-  late CharacterCrop _crop;
+  late ImageCrop _crop;
   var _saving = false;
 
   @override
@@ -237,7 +235,7 @@ class _ImageSheetState extends State<_ImageSheet> {
     super.initState();
     final path = widget.character.imagePath;
     _image = path == null ? null : characterImage(path, width: _decodeWidth);
-    _crop = widget.character.crop ?? CharacterCrop.fallback;
+    _crop = widget.character.crop ?? ImageCrop.character;
   }
 
   Future<void> _pick() async {
@@ -249,7 +247,7 @@ class _ImageSheetState extends State<_ImageSheet> {
       _pickedBytes = bytes;
       _pickedName = file.name;
       _image = ResizeImage(MemoryImage(bytes), width: _decodeWidth);
-      _crop = CharacterCrop.fallback;
+      _crop = ImageCrop.character;
     });
   }
 
@@ -262,7 +260,7 @@ class _ImageSheetState extends State<_ImageSheet> {
       if (bytes != null) {
         await library.setCharacterImage(id, bytes, _pickedName ?? 'image.png', crop: _crop);
       } else {
-        await library.setCharacterCrop(id, _crop);
+        await library.setImageCrop(id, _crop);
       }
       if (mounted) Navigator.pop(context);
     } on Object catch (e) {
@@ -322,7 +320,7 @@ class _ImageSheetState extends State<_ImageSheet> {
                 placeholder: const SizedBox(height: 240),
                 builder: (context, img) => Column(
                   children: [
-                    _CropEditor(image: img, crop: _crop, onChanged: (c) => setState(() => _crop = c)),
+                    ImageCropEditor(image: img, crop: _crop, oval: true, onChanged: (c) => setState(() => _crop = c)),
                     const SizedBox(height: 8),
                     const Text('Glisse le cercle sur le visage', style: TextStyle(fontSize: 13, color: InkColors.textFaint)),
                   ],
@@ -393,106 +391,4 @@ class _NoImage extends StatelessWidget {
       ),
     );
   }
-}
-
-/// L'image entière, avec un cercle à faire glisser sur le visage.
-class _CropEditor extends StatelessWidget {
-  const _CropEditor({required this.image, required this.crop, required this.onChanged});
-
-  static const _maxHeight = 360.0;
-
-  final ui.Image image;
-  final CharacterCrop crop;
-  final ValueChanged<CharacterCrop> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = image.width.toDouble();
-        final h = image.height.toDouble();
-        final scale = math.min(constraints.maxWidth / w, _maxHeight / h);
-        final shown = Size(w * scale, h * scale);
-        final current = crop.clampTo(shown);
-
-        return Semantics(
-          label: 'Déplacer le cadrage',
-          child: RawGestureDetector(
-            // Le glissement part tout de suite : il ne doit pas être pris par
-            // le panneau, qui se fermerait en glissant vers le bas.
-            gestures: {
-              ImmediateMultiDragGestureRecognizer: GestureRecognizerFactoryWithHandlers<ImmediateMultiDragGestureRecognizer>(
-                ImmediateMultiDragGestureRecognizer.new,
-                (recognizer) => recognizer.onStart = (_) {
-                  var moving = current;
-                  return _CropDrag((delta) {
-                    moving = CharacterCrop(
-                      x: moving.x + delta.dx / shown.width,
-                      y: moving.y + delta.dy / shown.height,
-                      d: moving.d,
-                    ).clampTo(shown);
-                    onChanged(moving);
-                  });
-                },
-              ),
-            },
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: CustomPaint(size: shown, painter: _CropEditorPainter(image, current)),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _CropDrag extends Drag {
-  _CropDrag(this.onDelta);
-
-  final ValueChanged<Offset> onDelta;
-
-  @override
-  void update(DragUpdateDetails details) => onDelta(details.delta);
-}
-
-class _CropEditorPainter extends CustomPainter {
-  _CropEditorPainter(this.image, this.crop);
-
-  final ui.Image image;
-  final CharacterCrop crop;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final all = Offset.zero & size;
-    canvas.drawImageRect(
-      image,
-      Offset.zero & Size(image.width.toDouble(), image.height.toDouble()),
-      all,
-      Paint()..filterQuality = FilterQuality.medium,
-    );
-    final circle = Rect.fromCircle(
-      center: Offset(crop.x * size.width, crop.y * size.height),
-      radius: crop.d * size.shortestSide / 2,
-    );
-    // Extérieur du cercle assombri, contour clair.
-    canvas
-      ..drawPath(
-        Path()
-          ..fillType = PathFillType.evenOdd
-          ..addRect(all)
-          ..addOval(circle),
-        Paint()..color = const Color(0x9E0B0D14),
-      )
-      ..drawOval(
-        circle.deflate(1),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color = InkColors.text,
-      );
-  }
-
-  @override
-  bool shouldRepaint(_CropEditorPainter old) => old.image != image || old.crop != crop;
 }

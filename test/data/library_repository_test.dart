@@ -114,7 +114,7 @@ void main() {
 
     final folders = await repo.folders(rafayel);
     expect(folders.single.storyCount, 1);
-    expect(folders.single.covers, [story.coverPath]);
+    expect(folders.single.covers, [story.cover]);
     expect((await repo.recentStories(rafayel)).single.id, storyId);
     expect((await repo.searchStories('tes')).single.id, storyId);
     expect(await repo.searchStories('100%'), isEmpty);
@@ -162,26 +162,26 @@ void main() {
     expect(File(first).readAsBytesSync(), [4, 5]);
     expect(stored.crop, isNull, reason: "cadrage par défaut tant qu'il n'est pas choisi");
 
-    await repo.setCharacterCrop(xavier.id, const CharacterCrop(x: 0.3, y: 0.25, d: 0.6));
+    await repo.setImageCrop(xavier.id, const ImageCrop(x: 0.3, y: 0.25, d: 0.6));
     stored = (await repo.characters())[1];
-    expect(stored.crop, const CharacterCrop(x: 0.3, y: 0.25, d: 0.6));
+    expect(stored.crop, const ImageCrop(x: 0.3, y: 0.25, d: 0.6));
 
     // Une nouvelle image remplace l'ancienne, fichier compris, avec son cadrage.
-    await repo.setCharacterImage(xavier.id, Uint8List.fromList([6]), 'x.png', crop: const CharacterCrop(x: 0.5, y: 0.4, d: 0.8));
+    await repo.setCharacterImage(xavier.id, Uint8List.fromList([6]), 'x.png', crop: const ImageCrop(x: 0.5, y: 0.4, d: 0.8));
     stored = (await repo.characters())[1];
     expect(stored.imagePath, isNot(first));
     expect(File(first).existsSync(), isFalse);
-    expect(stored.crop, const CharacterCrop(x: 0.5, y: 0.4, d: 0.8));
+    expect(stored.crop, const ImageCrop(x: 0.5, y: 0.4, d: 0.8));
     expect((await repo.characters()).first.imagePath, isNull, reason: 'les autres personnages ne changent pas');
   });
 
   test("le cercle de recadrage reste dans l'image", () {
     const size = Size(300, 400);
-    final c = const CharacterCrop(x: 0, y: 1, d: 0.8).clampTo(size);
+    final c = const ImageCrop(x: 0, y: 1, d: 0.8).clampTo(size);
     // Rayon : 0,8 × 300 / 2 = 120 px.
     expect(c.x, closeTo(120 / 300, 1e-9));
     expect(c.y, closeTo(280 / 400, 1e-9));
-    expect(CharacterCrop.fallback.squareIn(size), const Rect.fromLTWH(30, 80, 240, 240));
+    expect(ImageCrop.character.frameIn(size), const Rect.fromLTWH(30, 80, 240, 240));
   });
 
   Future<int> storyIn(int folderId, {Uint8List? cover}) => repo.saveStory(
@@ -255,5 +255,36 @@ void main() {
     expect(await repo.folder(five), isNotNull);
     await repo.deleteFolder(other);
     expect(await repo.folder(other), isNull);
+  });
+
+  test("le cadrage d'une couverture est gardé, et remis à zéro avec une nouvelle image", () async {
+    final rafayel = (await repo.characters()).first.id;
+    final folder = await repo.folderFor(rafayel, FolderType.memoria, rarity: 5);
+    const crop = ImageCrop(x: 0.4, y: 0.3, d: 0.6);
+    final id = await storyIn(folder, cover: Uint8List.fromList([1]));
+    expect((await repo.story(id))!.coverCrop, isNull, reason: 'le plus grand cadre centré par défaut');
+
+    await repo.setCoverCrop(id, crop);
+    var story = (await repo.story(id))!;
+    expect(story.coverCrop, crop);
+    expect((await repo.folders(rafayel)).single.covers.single, CoverImage(story.coverPath!, crop));
+
+    await repo.setCover(id, Uint8List.fromList([2]), 'b.png');
+    expect((await repo.story(id))!.coverCrop, isNull);
+    await repo.setCover(id, Uint8List.fromList([3]), 'c.png', crop: crop);
+    expect((await repo.story(id))!.coverCrop, crop);
+    await repo.removeCover(id);
+    story = (await repo.story(id))!;
+    expect((story.coverPath, story.coverCrop), (null, null));
+  });
+
+  test("un cadre 3:4 reste dans l'image et sa taille suit le plus grand cadre possible", () {
+    // Image paysage 400 × 300 : le plus grand 3:4 fait 225 × 300.
+    const size = Size(400, 300);
+    expect(ImageCrop.maxFrame(size, 3 / 4), const Size(225, 300));
+    expect(ImageCrop.full.frameIn(size, aspect: 3 / 4), const Rect.fromLTWH(87.5, 0, 225, 300));
+    // À moitié de la taille, poussé à gauche : il bute sur le bord.
+    final r = const ImageCrop(x: 0, y: 0.5, d: 0.5).frameIn(size, aspect: 3 / 4);
+    expect(r, const Rect.fromLTWH(0, 75, 112.5, 150));
   });
 }

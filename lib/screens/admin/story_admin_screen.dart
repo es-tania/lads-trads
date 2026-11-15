@@ -291,7 +291,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
         child: Image.memory(_coverBytes!, fit: BoxFit.cover, cacheWidth: 360),
       );
     } else {
-      cover = StoryCover(path: _coverRemoved ? null : story.coverPath, emptyLabel: null, decodeWidth: 360);
+      cover = StoryCover(cover: _coverRemoved ? null : story.cover, emptyLabel: null, decodeWidth: 360);
     }
     final hasCover = _coverBytes != null || (!_coverRemoved && story.coverPath != null);
 

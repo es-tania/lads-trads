@@ -38,6 +38,8 @@ void main() {
     expect(columns, containsAll(['image_path', 'crop_x', 'crop_y', 'crop_d']));
     final lineColumns = (await v2.rawQuery('PRAGMA table_info(lines)')).map((c) => c['name']);
     expect(lineColumns, contains('note'));
+    final storyColumns = (await v2.rawQuery('PRAGMA table_info(stories)')).map((c) => c['name']);
+    expect(storyColumns, containsAll(['cover_crop_x', 'cover_crop_y', 'cover_crop_d']));
 
     final repo = LibraryRepository(v2, coversDir: Directory(p.join(dir.path, 'covers')));
     final characters = await repo.characters();
@@ -48,8 +50,8 @@ void main() {
     expect(folders.single.storyCount, 1);
     expect((await repo.stories(folder)).single.title, 'Into The Canvas');
 
-    await repo.setCharacterCrop(rafayel, const CharacterCrop(x: 0.4, y: 0.3, d: 0.5));
-    expect((await repo.characters()).first.crop, const CharacterCrop(x: 0.4, y: 0.3, d: 0.5));
+    await repo.setImageCrop(rafayel, const ImageCrop(x: 0.4, y: 0.3, d: 0.5));
+    expect((await repo.characters()).first.crop, const ImageCrop(x: 0.4, y: 0.3, d: 0.5));
     await v2.close();
   });
 }

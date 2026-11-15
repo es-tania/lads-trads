@@ -314,7 +314,7 @@ class _RecentGrid extends StatelessWidget {
                       children: [
                         AspectRatio(
                           aspectRatio: 3 / 4,
-                          child: StoryCover(path: stories[i].coverPath, radius: 10, emptyLabel: null, decodeWidth: 300),
+                          child: StoryCover(cover: stories[i].cover, radius: 10, emptyLabel: null, decodeWidth: 300),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -363,7 +363,7 @@ class _FolderRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (hasCovers) ...[_CoverStack(paths: folder.covers), const SizedBox(width: 12)],
+              if (hasCovers) ...[_CoverStack(covers: folder.covers), const SizedBox(width: 12)],
               Text('${folder.storyCount}', style: InkText.count),
             ],
           ),
@@ -375,9 +375,9 @@ class _FolderRow extends StatelessWidget {
 
 /// Jusqu'à trois couvertures qui se chevauchent.
 class _CoverStack extends StatelessWidget {
-  const _CoverStack({required this.paths});
+  const _CoverStack({required this.covers});
 
-  final List<String> paths;
+  final List<CoverImage> covers;
 
   @override
   Widget build(BuildContext context) {
@@ -385,11 +385,11 @@ class _CoverStack extends StatelessWidget {
     const overlap = 8.0;
     return ExcludeSemantics(
       child: SizedBox(
-        width: w + (paths.length - 1) * (w - overlap) + 4,
+        width: w + (covers.length - 1) * (w - overlap) + 4,
         height: 36,
         child: Stack(
           children: [
-            for (final (i, path) in paths.indexed)
+            for (final (i, cover) in covers.indexed)
               Positioned(
                 left: i * (w - overlap),
                 top: 0,
@@ -398,7 +398,7 @@ class _CoverStack extends StatelessWidget {
                   height: 36,
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(color: InkColors.surface, borderRadius: BorderRadius.circular(6)),
-                  child: StoryCover(path: path, radius: 4, emptyLabel: null, decodeWidth: 96),
+                  child: StoryCover(cover: cover, radius: 4, emptyLabel: null, decodeWidth: 96),
                 ),
               ),
           ],

@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 
 import '../data/models.dart';
 import '../theme/ink.dart';
+import 'image_crop.dart';
 
 /// Image d'un personnage dans le stockage de l'app, décodée à une taille
 /// raisonnable : une photo de plusieurs mégaoctets ne reste pas en mémoire
@@ -39,7 +39,7 @@ class CharacterAvatar extends StatelessWidget {
   final ImageProvider? image;
 
   /// Cercle choisi sur l'image ; `null` : cadrage par défaut.
-  final CharacterCrop? crop;
+  final ImageCrop? crop;
 
   /// Sans image : bordure en pointillés au lieu d'un fond plein (écran admin).
   final bool dashed;
@@ -52,14 +52,7 @@ class CharacterAvatar extends StatelessWidget {
       dimension: size,
       child: provider == null
           ? placeholder
-          : ResolvedImage(
-              image: provider,
-              placeholder: placeholder,
-              builder: (context, img) => CustomPaint(
-                size: Size.square(size),
-                painter: _CropPainter(img, crop ?? CharacterCrop.fallback),
-              ),
-            ),
+          : CroppedImage(image: provider, crop: crop ?? ImageCrop.character, oval: true, placeholder: placeholder),
     );
   }
 }
@@ -93,90 +86,6 @@ class _Initial extends StatelessWidget {
       decoration: const BoxDecoration(color: InkColors.raised, shape: BoxShape.circle),
       child: Center(child: text),
     );
-  }
-}
-
-/// Peint le carré de recadrage de l'image dans un disque.
-class _CropPainter extends CustomPainter {
-  _CropPainter(this.image, this.crop);
-
-  final ui.Image image;
-  final CharacterCrop crop;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final source = crop.squareIn(Size(image.width.toDouble(), image.height.toDouble()));
-    final dest = Offset.zero & size;
-    canvas
-      ..save()
-      ..clipPath(Path()..addOval(dest))
-      ..drawImageRect(image, source, dest, Paint()..filterQuality = FilterQuality.medium)
-      ..restore();
-  }
-
-  @override
-  bool shouldRepaint(_CropPainter old) => old.image != image || old.crop != crop;
-}
-
-/// Décode [image] et donne l'image prête à peindre ; [placeholder] en
-/// attendant, ou si le fichier est illisible.
-class ResolvedImage extends StatefulWidget {
-  const ResolvedImage({super.key, required this.image, required this.builder, required this.placeholder});
-
-  final ImageProvider image;
-  final Widget Function(BuildContext context, ui.Image image) builder;
-  final Widget placeholder;
-
-  @override
-  State<ResolvedImage> createState() => _ResolvedImageState();
-}
-
-class _ResolvedImageState extends State<ResolvedImage> {
-  ImageStream? _stream;
-  ImageInfo? _info;
-  late final _listener = ImageStreamListener(
-    (info, _) {
-      if (!mounted) return;
-      setState(() {
-        _info?.dispose();
-        _info = info;
-      });
-    },
-    onError: (_, _) {
-      if (mounted) setState(() => _info = null);
-    },
-  );
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _resolve();
-  }
-
-  @override
-  void didUpdateWidget(ResolvedImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.image != widget.image) _resolve();
-  }
-
-  void _resolve() {
-    final stream = widget.image.resolve(createLocalImageConfiguration(context));
-    if (stream.key == _stream?.key) return;
-    _stream?.removeListener(_listener);
-    _stream = stream..addListener(_listener);
-  }
-
-  @override
-  void dispose() {
-    _stream?.removeListener(_listener);
-    _info?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final info = _info;
-    return info == null ? widget.placeholder : widget.builder(context, info.image);
   }
 }
 

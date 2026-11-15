@@ -6,7 +6,8 @@ const defaultCharacters = ['Rafayel', 'Xavier', 'Zayne', 'Sylus', 'Caleb'];
 
 /// Version 2 : image et recadrage des personnages.
 /// Version 3 : note de traduction sur chaque ligne.
-const libraryDatabaseVersion = 3;
+/// Version 4 : cadrage des couvertures.
+const libraryDatabaseVersion = 4;
 
 /// Ouvre (ou crée) la base locale.
 ///
@@ -52,6 +53,15 @@ Future<void> _upgrade(Database db, int from, int to) async {
   if (from < 3 && to >= 3) {
     // Note de la traductrice, visible seulement en mode admin.
     await db.execute('ALTER TABLE lines ADD COLUMN note TEXT');
+  }
+  if (from < 4 && to >= 4) {
+    // Cadre 3:4 choisi sur la couverture (voir ImageCrop). NULL : le plus
+    // grand cadre centré, comme avant.
+    final batch = db.batch()
+      ..execute('ALTER TABLE stories ADD COLUMN cover_crop_x REAL')
+      ..execute('ALTER TABLE stories ADD COLUMN cover_crop_y REAL')
+      ..execute('ALTER TABLE stories ADD COLUMN cover_crop_d REAL');
+    await batch.commit(noResult: true);
   }
 }
 

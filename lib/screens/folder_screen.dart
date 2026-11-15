@@ -87,7 +87,7 @@ class _StoryGrid extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      AspectRatio(aspectRatio: 3 / 4, child: StoryCover(path: story.coverPath)),
+                      AspectRatio(aspectRatio: 3 / 4, child: StoryCover(cover: story.cover)),
                       const SizedBox(height: 8),
                       Text(story.title, style: InkText.row, maxLines: 2, overflow: TextOverflow.ellipsis),
                     ],

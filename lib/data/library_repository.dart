@@ -35,7 +35,7 @@ class LibraryRepository extends ChangeNotifier {
       imagePath: r['image_path'] as String?,
       crop: x == null || y == null || d == null
           ? null
-          : CharacterCrop(x: x.toDouble(), y: y.toDouble(), d: d.toDouble()),
+          : ImageCrop(x: x.toDouble(), y: y.toDouble(), d: d.toDouble()),
     );
   }
 
@@ -52,16 +52,16 @@ class LibraryRepository extends ChangeNotifier {
         f.rarity DESC, f.created_at
     ''', [characterId]);
 
-    final covers = <int, List<String>>{};
+    final covers = <int, List<CoverImage>>{};
     final coverRows = await _db.rawQuery('''
-      SELECT s.folder_id, s.cover_path FROM stories s
+      SELECT s.folder_id, s.cover_path, s.cover_crop_x, s.cover_crop_y, s.cover_crop_d FROM stories s
       JOIN folders f ON f.id = s.folder_id
       WHERE f.character_id = ? AND s.cover_path IS NOT NULL
       ORDER BY s.created_at DESC
     ''', [characterId]);
     for (final r in coverRows) {
       final list = covers.putIfAbsent(r['folder_id']! as int, () => []);
-      if (list.length < 3) list.add(r['cover_path']! as String);
+      if (list.length < 3) list.add(CoverImage(r['cover_path']! as String, _coverCrop(r)));
     }
 
     return [
@@ -105,6 +105,7 @@ class LibraryRepository extends ChangeNotifier {
         title: r['title']! as String,
         titleEn: r['title_en']! as String,
         coverPath: r['cover_path'] as String?,
+        coverCrop: _coverCrop(r),
         createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
         partCount: r['part_count']! as int,
         characterName: r['character_name']! as String,
@@ -222,7 +223,7 @@ class LibraryRepository extends ChangeNotifier {
   /// Copie l'image dans le stockage de l'app et l'associe au personnage.
   ///
   /// Le recadrage repart de [crop], ou du cadrage par défaut.
-  Future<void> setCharacterImage(int characterId, Uint8List bytes, String fileName, {CharacterCrop? crop}) async {
+  Future<void> setCharacterImage(int characterId, Uint8List bytes, String fileName, {ImageCrop? crop}) async {
     await coversDir.create(recursive: true);
     final ext = p.extension(fileName).toLowerCase();
     final file = File(p.join(
@@ -244,12 +245,12 @@ class LibraryRepository extends ChangeNotifier {
   }
 
   /// Enregistre le cercle choisi sur l'image du personnage.
-  Future<void> setCharacterCrop(int characterId, CharacterCrop crop) async {
+  Future<void> setImageCrop(int characterId, ImageCrop crop) async {
     await _db.update('characters', _cropColumns(crop), where: 'id = ?', whereArgs: [characterId]);
     notifyListeners();
   }
 
-  Map<String, Object?> _cropColumns(CharacterCrop? crop) => {
+  Map<String, Object?> _cropColumns(ImageCrop? crop) => {
         'crop_x': crop?.x.clamp(0.0, 1.0),
         'crop_y': crop?.y.clamp(0.0, 1.0),
         'crop_d': crop?.d.clamp(0.0, 1.0),
@@ -553,7 +554,7 @@ class LibraryRepository extends ChangeNotifier {
   /// Retire la couverture d'une histoire et efface le fichier.
   Future<void> removeCover(int storyId, {bool notify = true}) async {
     final old = await _db.query('stories', columns: ['cover_path'], where: 'id = ?', whereArgs: [storyId]);
-    await _db.update('stories', {'cover_path': null}, where: 'id = ?', whereArgs: [storyId]);
+    await _db.update('stories', {'cover_path': null, ..._coverCropColumns(null)}, where: 'id = ?', whereArgs: [storyId]);
     final oldPath = old.isEmpty ? null : old.single['cover_path'] as String?;
     if (oldPath != null) await _deleteQuietly(oldPath);
     if (notify) notifyListeners();
@@ -585,6 +586,7 @@ class LibraryRepository extends ChangeNotifier {
     required ParsedStory parsed,
     Uint8List? coverBytes,
     String? coverName,
+    ImageCrop? coverCrop,
   }) async {
     final storyId = await _db.transaction((txn) async {
       final storyId = await txn.insert('stories', {
@@ -605,7 +607,9 @@ class LibraryRepository extends ChangeNotifier {
       return storyId;
     });
 
-    if (coverBytes != null) await setCover(storyId, coverBytes, coverName ?? 'cover.png', notify: false);
+    if (coverBytes != null) {
+      await setCover(storyId, coverBytes, coverName ?? 'cover.png', crop: coverCrop, notify: false);
+    }
     notifyListeners();
     return storyId;
   }
@@ -660,7 +664,8 @@ class LibraryRepository extends ChangeNotifier {
   }
 
   /// Copie l'image dans le stockage de l'app et l'associe à l'histoire.
-  Future<void> setCover(int storyId, Uint8List bytes, String fileName, {bool notify = true}) async {
+  /// Le cadrage repart de [crop], ou du plus grand cadre centré.
+  Future<void> setCover(int storyId, Uint8List bytes, String fileName, {ImageCrop? crop, bool notify = true}) async {
     await coversDir.create(recursive: true);
     final ext = p.extension(fileName).toLowerCase();
     // Nom unique : une nouvelle couverture ne réutilise pas l'image en cache.
@@ -668,10 +673,27 @@ class LibraryRepository extends ChangeNotifier {
     await file.writeAsBytes(bytes, flush: true);
 
     final old = await _db.query('stories', columns: ['cover_path'], where: 'id = ?', whereArgs: [storyId]);
-    await _db.update('stories', {'cover_path': file.path}, where: 'id = ?', whereArgs: [storyId]);
+    await _db.update('stories', {'cover_path': file.path, ..._coverCropColumns(crop)}, where: 'id = ?', whereArgs: [storyId]);
     final oldPath = old.isEmpty ? null : old.single['cover_path'] as String?;
     if (oldPath != null) await _deleteQuietly(oldPath);
     if (notify) notifyListeners();
+  }
+
+  /// Enregistre le cadre choisi sur la couverture.
+  Future<void> setCoverCrop(int storyId, ImageCrop crop) async {
+    await _db.update('stories', _coverCropColumns(crop), where: 'id = ?', whereArgs: [storyId]);
+    notifyListeners();
+  }
+
+  static Map<String, Object?> _coverCropColumns(ImageCrop? crop) => {
+        'cover_crop_x': crop?.x.clamp(0.0, 1.0),
+        'cover_crop_y': crop?.y.clamp(0.0, 1.0),
+        'cover_crop_d': crop?.d.clamp(0.0, 1.0),
+      };
+
+  static ImageCrop? _coverCrop(Map<String, Object?> r) {
+    final (x, y, d) = (r['cover_crop_x'] as num?, r['cover_crop_y'] as num?, r['cover_crop_d'] as num?);
+    return x == null || y == null || d == null ? null : ImageCrop(x: x.toDouble(), y: y.toDouble(), d: d.toDouble());
   }
 
   Future<void> deleteStory(int storyId) async {

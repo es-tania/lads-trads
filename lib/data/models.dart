@@ -16,7 +16,7 @@ class Character {
   final String? imagePath;
 
   /// Cercle choisi sur l'image, ou `null` pour le cadrage par défaut.
-  final CharacterCrop? crop;
+  final ImageCrop? crop;
 
   /// Initiale affichée quand il n'y a pas d'image.
   String get initial {
@@ -25,51 +25,86 @@ class Character {
   }
 }
 
-/// Cercle de recadrage d'une image de personnage, en fractions de l'image.
-///
-/// [x] : centre en fraction de la largeur, [y] : en fraction de la hauteur,
-/// [d] : diamètre en fraction du plus petit côté. Tous entre 0 et 1.
-class CharacterCrop {
-  const CharacterCrop({required this.x, required this.y, required this.d});
+/// Rapport largeur sur hauteur des couvertures.
+const coverAspect = 3 / 4;
 
-  /// Cadrage par défaut : centré, 80 % du plus petit côté.
-  static const fallback = CharacterCrop(x: 0.5, y: 0.5, d: 0.8);
+/// Une couverture : son fichier et son cadrage.
+class CoverImage {
+  const CoverImage(this.path, [this.crop]);
+
+  final String path;
+  final ImageCrop? crop;
+
+  @override
+  bool operator ==(Object other) => other is CoverImage && other.path == path && other.crop == crop;
+
+  @override
+  int get hashCode => Object.hash(path, crop);
+}
+
+/// Cadrage d'une image : un cadre (cercle d'un personnage, rectangle 3:4
+/// d'une couverture) placé sur l'image, en fractions de l'image.
+///
+/// [x] : centre en fraction de la largeur, [y] : en fraction de la hauteur.
+/// [d] : taille du cadre en fraction du plus grand cadre de même forme qui
+/// tient dans l'image (1 : le plus grand possible). Pour un cercle, c'est
+/// le diamètre en fraction du plus petit côté. Tous entre 0 et 1.
+class ImageCrop {
+  const ImageCrop({required this.x, required this.y, required this.d});
+
+  /// Personnage par défaut : centré, 80 % du plus petit côté.
+  static const character = ImageCrop(x: 0.5, y: 0.5, d: 0.8);
+
+  /// Couverture par défaut : le plus grand cadre centré (comme « cover »).
+  static const full = ImageCrop(x: 0.5, y: 0.5, d: 1);
+
+  /// Plus petite taille proposée.
+  static const minSize = 0.2;
 
   final double x;
   final double y;
   final double d;
 
-  /// Même cercle, ramené à l'intérieur d'une image de taille [size].
-  CharacterCrop clampTo(Size size) {
+  /// Taille en pixels du plus grand cadre de rapport [aspect] (largeur sur
+  /// hauteur) qui tient dans une image de taille [size].
+  static Size maxFrame(Size size, double aspect) {
+    final w = math.min(size.width, size.height * aspect);
+    return Size(w, w / aspect);
+  }
+
+  /// Même cadre, ramené à l'intérieur d'une image de taille [size].
+  ImageCrop clampTo(Size size, {double aspect = 1}) {
     if (size.isEmpty) return this;
-    final shortest = size.shortestSide;
     final dd = d.clamp(0.05, 1.0);
-    final r = dd * shortest / 2;
-    return CharacterCrop(
-      x: (x * size.width).clamp(r, math.max(r, size.width - r)) / size.width,
-      y: (y * size.height).clamp(r, math.max(r, size.height - r)) / size.height,
+    final max = maxFrame(size, aspect);
+    final hw = dd * max.width / 2;
+    final hh = dd * max.height / 2;
+    return ImageCrop(
+      x: (x * size.width).clamp(hw, math.max(hw, size.width - hw)) / size.width,
+      y: (y * size.height).clamp(hh, math.max(hh, size.height - hh)) / size.height,
       d: dd,
     );
   }
 
-  /// Carré englobant le cercle, en pixels d'une image de taille [size].
-  Rect squareIn(Size size) {
-    final c = clampTo(size);
+  /// Le cadre, en pixels d'une image de taille [size].
+  Rect frameIn(Size size, {double aspect = 1}) {
+    final c = clampTo(size, aspect: aspect);
+    final max = maxFrame(size, aspect);
     return Rect.fromCenter(
       center: Offset(c.x * size.width, c.y * size.height),
-      width: c.d * size.shortestSide,
-      height: c.d * size.shortestSide,
+      width: c.d * max.width,
+      height: c.d * max.height,
     );
   }
 
   @override
-  bool operator ==(Object other) => other is CharacterCrop && other.x == x && other.y == y && other.d == d;
+  bool operator ==(Object other) => other is ImageCrop && other.x == x && other.y == y && other.d == d;
 
   @override
   int get hashCode => Object.hash(x, y, d);
 
   @override
-  String toString() => 'CharacterCrop($x, $y, $d)';
+  String toString() => 'ImageCrop($x, $y, $d)';
 }
 
 enum FolderType {
@@ -112,7 +147,7 @@ class Folder {
 
   /// Calculés à la lecture : nombre d'histoires et jusqu'à trois couvertures.
   final int storyCount;
-  final List<String> covers;
+  final List<CoverImage> covers;
 
   /// Nom par défaut d'un dossier selon son type.
   static String defaultName(FolderType type, {int? rarity}) =>
@@ -127,6 +162,7 @@ class Story {
     required this.titleEn,
     required this.createdAt,
     this.coverPath,
+    this.coverCrop,
     this.partCount = 0,
     this.characterName = '',
     this.folderName = '',
@@ -140,6 +176,11 @@ class Story {
 
   /// Chemin de l'image de couverture dans le stockage de l'app.
   final String? coverPath;
+
+  /// Cadre 3:4 choisi sur la couverture, `null` : le plus grand, centré.
+  final ImageCrop? coverCrop;
+
+  CoverImage? get cover => coverPath == null ? null : CoverImage(coverPath!, coverCrop);
 
   /// Calculés à la lecture.
   final int partCount;

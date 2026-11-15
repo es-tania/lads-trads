@@ -2,13 +2,16 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../data/models.dart';
 import '../theme/ink.dart';
+import 'image_crop.dart';
 
-/// Couverture d'une histoire, ou un emplacement vide s'il n'y en a pas.
+/// Couverture d'une histoire, cadrée comme choisi, ou un emplacement vide
+/// s'il n'y en a pas.
 class StoryCover extends StatelessWidget {
-  const StoryCover({super.key, required this.path, this.radius = 12, this.emptyLabel = 'Pas d\'image', this.decodeWidth = 400});
+  const StoryCover({super.key, required this.cover, this.radius = 12, this.emptyLabel = 'Pas d\'image', this.decodeWidth = 400});
 
-  final String? path;
+  final CoverImage? cover;
   final double radius;
   final String? emptyLabel;
 
@@ -19,11 +22,24 @@ class StoryCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final placeholder = CoverPlaceholder(radius: radius, label: emptyLabel);
-    if (path == null) return placeholder;
+    final cover = this.cover;
+    if (cover == null) return placeholder;
+    final crop = cover.crop;
+    if (crop != null) {
+      // Un cadre plus petit agrandit l'image : on la décode plus large pour
+      // qu'elle reste nette.
+      final width = (decodeWidth / crop.d.clamp(ImageCrop.minSize, 1.0)).round().clamp(decodeWidth, 2048);
+      return CroppedImage(
+        image: ResizeImage(FileImage(File(cover.path)), width: width),
+        crop: crop,
+        radius: radius,
+        placeholder: placeholder,
+      );
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Image.file(
-        File(path!),
+        File(cover.path),
         fit: BoxFit.cover,
         cacheWidth: decodeWidth,
         gaplessPlayback: true,

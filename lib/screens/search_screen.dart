@@ -76,7 +76,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                     SizedBox(
                                       width: 30,
                                       height: 40,
-                                      child: StoryCover(path: story.coverPath, radius: 4, emptyLabel: null, decodeWidth: 90),
+                                      child: StoryCover(cover: story.cover, radius: 4, emptyLabel: null, decodeWidth: 90),
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(

@@ -143,7 +143,7 @@ class _Header extends StatelessWidget {
           SizedBox(
             width: 96,
             height: 128,
-            child: StoryCover(path: story.coverPath, emptyLabel: null, decodeWidth: 288),
+            child: StoryCover(cover: story.cover, emptyLabel: null, decodeWidth: 288),
           ),
           const SizedBox(width: 16),
           Expanded(
