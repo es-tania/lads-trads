@@ -39,6 +39,16 @@ Future<List<PlayPart>> loadPlayParts(LibraryRepository library, int storyId) asy
   return parts;
 }
 
+/// Taille et position de la fenêtre à sa création, en pixels de l'écran.
+///
+/// À la création, le plugin prend ces valeurs en pixels, alors qu'ensuite
+/// (resizeOverlay, moveOverlay) il les prend en points : sans conversion,
+/// la fenêtre naissait trois fois trop étroite.
+({int width, int height, int x, int y}) overlayStartGeometry({required double screenWidth, required double pixelRatio}) {
+  int px(double dp) => (dp * pixelRatio).round();
+  return (width: px(screenWidth - 16), height: px(120), x: px(8), y: px(120));
+}
+
 /// Résultat d'un lancement, pour l'écran qui l'a demandé.
 enum LaunchResult { opened, permissionDenied }
 
@@ -62,12 +72,14 @@ class OverlayLauncher {
 
   /// Affiche la partie [partIndex] de l'histoire dans la fenêtre flottante.
   ///
-  /// [screenWidth] : largeur de l'écran en points, pour la largeur de la fenêtre.
+  /// [screenWidth] : largeur de l'écran en points, pour la largeur de la
+  /// fenêtre ; [pixelRatio] : pixels par point de l'écran.
   Future<LaunchResult> launch({
     required int storyId,
     required String storyTitle,
     required int partIndex,
     required double screenWidth,
+    required double pixelRatio,
     bool admin = false,
   }) async {
     if (!await hasPermission()) return LaunchResult.permissionDenied;
@@ -96,11 +108,12 @@ class OverlayLauncher {
     );
 
     if (!await FlutterOverlayWindow.isActive()) {
+      final start = overlayStartGeometry(screenWidth: screenWidth, pixelRatio: pixelRatio);
       await FlutterOverlayWindow.showOverlay(
-        width: (screenWidth - 16).round(),
-        height: 120,
+        width: start.width,
+        height: start.height,
         alignment: OverlayAlignment.topLeft,
-        startPosition: const OverlayPosition(8, 120),
+        startPosition: OverlayPosition(start.x.toDouble(), start.y.toDouble()),
         flag: OverlayFlag.defaultFlag,
         enableDrag: false,
         positionGravity: PositionGravity.auto,

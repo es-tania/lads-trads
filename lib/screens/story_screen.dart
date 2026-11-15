@@ -48,6 +48,7 @@ class StoryScreen extends StatelessWidget {
       storyTitle: story.title,
       partIndex: part.position,
       screenWidth: MediaQuery.sizeOf(context).width,
+      pixelRatio: MediaQuery.devicePixelRatioOf(context),
       admin: adminMode.value,
     );
     if (context.mounted) showStepSnack(context, '${part.displayTitle} est prête : passe sur le jeu.');

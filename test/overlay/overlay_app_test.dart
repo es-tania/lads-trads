@@ -55,8 +55,17 @@ class FakeHost implements OverlayHost {
   @override
   Future<void> send(Object? message) async => sent.add(message);
 
+  /// Nombre de redimensionnements qui échouent d'abord (service pas prêt).
+  var failingResizes = 0;
+
   @override
-  Future<void> resize(int width, int height, {required bool drag}) async => resizes.add((width, height, drag));
+  Future<void> resize(int width, int height, {required bool drag}) async {
+    if (failingResizes > 0) {
+      failingResizes--;
+      throw StateError('service pas encore prêt');
+    }
+    resizes.add((width, height, drag));
+  }
 
   /// Position réelle de la fenêtre, mise à jour par [move].
   Offset at = const Offset(8, 120);
@@ -354,5 +363,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(host.saved.last, (10, 'Les couleurs sont prêtes.', null));
     expect(find.text('Zayne'), findsNothing);
+  });
+
+  testWidgets("au premier lancement, la fenêtre redemande sa taille si le service n'est pas prêt", (tester) async {
+    tester.view.physicalSize = const Size(1122, 1500);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    host = FakeHost()..failingResizes = 2;
+    await tester.pumpWidget(OverlayApp(host: host));
+    host.controller.add(load());
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(host.failingResizes, 0, reason: "les deux échecs ont été suivis d'un nouvel essai");
+    expect(host.resizes, isNotEmpty);
+    expect(host.resizes.last.$1, 374, reason: "largeur de l'écran moins les marges");
+  });
+
+  test('la fenêtre est créée en pixels, pas en points', () {
+    final g = overlayStartGeometry(screenWidth: 384, pixelRatio: 2.8125);
+    expect(g, (width: 1035, height: 338, x: 23, y: 338));
   });
 }

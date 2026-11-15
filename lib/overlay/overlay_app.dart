@@ -61,6 +61,9 @@ class _OverlayScreenState extends State<OverlayScreen> {
   double _screenWidth = 360;
   double _maxHeight = 320;
   int _reportedHeight = 0;
+
+  /// Largeur demandée au système avec [_reportedHeight].
+  int _reportedWidth = 0;
   ({double x, double y})? _windowPosition;
 
   /// Mode admin : un crayon permet de corriger la réplique affichée.
@@ -98,6 +101,8 @@ class _OverlayScreenState extends State<OverlayScreen> {
         _screenWidth = screen.width;
         _maxHeight = math.max(160, screen.height * 0.45);
       });
+      // La largeur vient de changer, peut-être sans la hauteur : on la redemande.
+      if (_reportedHeight > 0 && !_bubble) _requestSize(_reportedHeight);
     }
     await _declareGrip();
     // Sans attendre la réponse, qui ne vient jamais (voir [OverlayHost.send]).
@@ -156,13 +161,35 @@ class _OverlayScreenState extends State<OverlayScreen> {
     _fontSize = ((message['fontSize'] as num?) ?? _fontSize).toDouble();
   }
 
-  /// La fenêtre prend la hauteur de son contenu.
+  /// La fenêtre prend la hauteur de son contenu, et la largeur de l'écran.
   void _onContentHeight(double height) {
     if (_bubble) return;
     final h = height.ceil();
-    if ((h - _reportedHeight).abs() <= 1) return;
-    _reportedHeight = h;
-    unawaited(host.resize(_windowWidth, h, drag: false).then((_) => _declareGrip()));
+    if ((h - _reportedHeight).abs() <= 1 && _reportedWidth == _windowWidth) return;
+    _requestSize(h);
+  }
+
+  void _requestSize(int height) {
+    _reportedHeight = height;
+    _reportedWidth = _windowWidth;
+    unawaited(_applySize(height));
+  }
+
+  /// Au premier lancement, le service système peut ne pas être prêt quand
+  /// la fenêtre demande sa taille : on réessaie, sinon elle resterait à sa
+  /// taille de création.
+  Future<void> _applySize(int height, {int attempt = 0}) async {
+    try {
+      await host.resize(_windowWidth, height, drag: false);
+      await _declareGrip();
+    } on Object {
+      if (attempt >= 10 || !mounted) {
+        _reportedHeight = 0;
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (mounted && !_bubble && _reportedHeight == height) await _applySize(height, attempt: attempt + 1);
+    }
   }
 
   // ── Modification pendant la lecture (mode admin) ──────────────────────
