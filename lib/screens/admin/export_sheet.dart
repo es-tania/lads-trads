@@ -7,7 +7,7 @@ import '../../data/services.dart';
 import '../../docx/story_export.dart';
 import '../../theme/ink.dart';
 import '../../widgets/ink_widgets.dart';
-import 'line_sheet.dart';
+import '../../widgets/ink_sheet.dart';
 
 const _docxMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
