@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../data/library_repository.dart';
 import '../data/models.dart';
+import '../text/markup.dart';
 import 'docx_writer.dart';
 
 /// Langue d'un export.
@@ -147,12 +148,21 @@ String _choicePrompt(LineRow row, {required bool en}) {
   return en ? 'Choices :' : 'Choix:';
 }
 
-/// « Nom : texte », le nom en gras ; une pensée garde ses parenthèses, pour
-/// être reconnue à la réimportation.
+/// « Nom : texte », le nom en gras et le gras / l'italique du texte gardés ;
+/// une pensée garde ses parenthèses, pour être reconnue à la réimportation.
 OutParagraph _lineParagraph(LineRow r, {required bool en, bool muted = false, String? comment}) {
   final text = en ? r.textEn : r.text;
-  if (r.kind == LineRowKind.narration || r.speaker == null) return OutParagraph(text, muted: muted, comment: comment);
+  final spans = markupSpans(text);
+  if (r.kind == LineRowKind.narration || r.speaker == null) {
+    return OutParagraph(plainText(text), spans: spans, muted: muted, comment: comment);
+  }
   final speaker = en && (r.speakerEn?.trim().isNotEmpty ?? false) ? r.speakerEn! : r.speaker!;
-  final body = r.kind == LineRowKind.thought && !text.trimLeft().startsWith('(') ? '($text)' : text;
-  return OutParagraph('$speaker : $body', boldLength: speaker.length, muted: muted, comment: comment);
+  final wrap = r.kind == LineRowKind.thought && !plainText(text).trimLeft().startsWith('(');
+  final body = [if (wrap) const MarkupSpan('('), ...spans, if (wrap) const MarkupSpan(')')];
+  return OutParagraph(
+    '$speaker : ${body.map((s) => s.text).join()}',
+    spans: [MarkupSpan(speaker, bold: true), const MarkupSpan(' : '), ...body],
+    muted: muted,
+    comment: comment,
+  );
 }

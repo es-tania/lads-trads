@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
 
+import '../text/markup.dart';
+
 /// Paragraphe à écrire dans un .docx.
 class OutParagraph {
   const OutParagraph(
@@ -12,13 +14,13 @@ class OutParagraph {
     this.listItem = false,
     this.comment,
     this.muted = false,
-    this.boldLength = 0,
+    this.spans,
   });
 
   final String text;
 
-  /// Nombre de caractères en gras au début du texte (le nom du personnage).
-  final int boldLength;
+  /// Morceaux en gras ou en italique ; `null` : [text] tel quel.
+  final List<MarkupSpan>? spans;
 
   /// Style « Titre 1 » (titre de l'histoire, titres de parties).
   final bool heading;
@@ -62,9 +64,9 @@ Uint8List buildDocx(List<OutParagraph> paragraphs) {
             });
           }
           if (commentId != null) body.element('w:commentRangeStart', attributes: {'w:id': '$commentId'});
-          final bold = p.boldLength.clamp(0, p.text.length);
-          if (bold > 0) _runs(body, p.text.substring(0, bold), muted: p.muted, bold: true);
-          if (bold < p.text.length || bold == 0) _runs(body, p.text.substring(bold), muted: p.muted);
+          for (final s in _merged(p.spans ?? [MarkupSpan(p.text)])) {
+            _runs(body, s.text, muted: p.muted, bold: s.bold, italic: s.italic);
+          }
           if (commentId != null) {
             body.element('w:commentRangeEnd', attributes: {'w:id': '$commentId'});
             body.element('w:r', nest: () {
@@ -102,12 +104,28 @@ Uint8List buildDocx(List<OutParagraph> paragraphs) {
   return Uint8List.fromList(ZipEncoder().encode(archive));
 }
 
+/// Morceaux voisins de même style réunis : un seul run Word pour chacun.
+List<MarkupSpan> _merged(List<MarkupSpan> spans) {
+  final out = <MarkupSpan>[];
+  for (final s in spans) {
+    if (s.text.isEmpty) continue;
+    final last = out.isEmpty ? null : out.last;
+    if (last != null && last.bold == s.bold && last.italic == s.italic) {
+      out[out.length - 1] = MarkupSpan(last.text + s.text, bold: s.bold, italic: s.italic);
+    } else {
+      out.add(s);
+    }
+  }
+  return out.isEmpty ? const [MarkupSpan('')] : out;
+}
+
 /// Texte d'un paragraphe ; les retours à la ligne deviennent des `<w:br/>`.
-void _runs(XmlBuilder b, String text, {required bool muted, bool bold = false}) {
+void _runs(XmlBuilder b, String text, {required bool muted, bool bold = false, bool italic = false}) {
   b.element('w:r', nest: () {
-    if (muted || bold) {
+    if (muted || bold || italic) {
       b.element('w:rPr', nest: () {
         if (bold) b.element('w:b');
+        if (italic) b.element('w:i');
         if (muted) b.element('w:color', attributes: {'w:val': '7A8296'});
       });
     }

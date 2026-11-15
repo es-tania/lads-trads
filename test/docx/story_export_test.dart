@@ -161,4 +161,19 @@ void main() {
     // Toujours réimportable.
     expect(readDocxParagraphs(file.bytes).map((x) => x.text), contains('Rafayel : Les couleurs sont prêtes.'));
   });
+
+  test("le gras et l'italique d'une réplique deviennent du gras et de l'italique Word", () async {
+    final part = (await repo.parts(storyId)).first;
+    final first = (await repo.lines(part.id)).first;
+    await repo.updateLine(first.id, kind: LineRowKind.dialogue, text: 'Les <i>couleurs</i> sont <b>prêtes</b>.', speaker: 'Rafayel');
+    final file = await export(ExportLanguage.fr);
+    final xml = utf8.decode(ZipDecoder().decodeBytes(file.bytes).findFile('word/document.xml')!.content);
+    final runs = RegExp(r'<w:r>(.*?)</w:r>').allMatches(xml).map((m) => m.group(1)!).toList();
+    String run(String text) => runs.firstWhere((r) => r.contains('>$text</w:t>'));
+    expect(run('couleurs'), contains('<w:i/>'));
+    expect(run('prêtes'), contains('<w:b/>'));
+    expect(run(' sont '), isNot(contains('<w:b/>')));
+    expect(xml, isNot(contains('&lt;b&gt;')), reason: 'pas de balises dans le Word');
+    expect(readDocxParagraphs(file.bytes).map((x) => x.text), contains('Rafayel : Les couleurs sont prêtes.'));
+  });
 }
