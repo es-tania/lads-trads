@@ -505,6 +505,39 @@ void main() {
     expect(find.text('Télécharger'), findsNothing, reason: 'le panneau se ferme');
   });
 
+
+  testWidgets("Sans anglais importé, l'export ne propose que le français", (tester) async {
+    await start(tester);
+    final story = (await tester.runAsync(() async {
+      final folder = await library.folderFor((await library.characters()).first.id, FolderType.other);
+      final id = await library.saveStory(
+        folderId: folder,
+        title: 'Seulement FR',
+        parsed: parseStoryParagraphs(fr: [_p('FIN', h1: true), _p('Il part.')]),
+      );
+      return library.story(id);
+    }))!;
+    await tester.pumpWidget(Services(
+      library: library,
+      settings: settings,
+      child: MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(onPressed: () => showExportSheet(context, story), child: const Text('Ouvrir')),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Ouvrir'));
+    await _settle(tester);
+
+    expect(find.text("Histoire importée sans anglais : seul le français s'exporte."), findsOneWidget);
+    await tester.tap(find.text('Anglais'));
+    await tester.pump();
+    expect(find.text('Seulement FR - FR.docx'), findsOneWidget, reason: 'le choix reste le français');
+    expect(find.text('Seulement FR - EN.docx'), findsNothing);
+  });
+
   Future<Uint8List> png(int w, int h) async {
     final recorder = ui.PictureRecorder();
     Canvas(recorder).drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = const Color(0xFF336699));

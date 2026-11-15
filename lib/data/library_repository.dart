@@ -187,6 +187,15 @@ class LibraryRepository extends ChangeNotifier {
     ];
   }
 
+  /// L'histoire a-t-elle du texte anglais (importée avec un EN.docx) ?
+  Future<bool> hasEnglish(int storyId) async {
+    final rows = await _db.rawQuery('''
+      SELECT 1 FROM lines l JOIN parts p ON p.id = l.part_id
+      WHERE p.story_id = ? AND TRIM(l.text_en) != '' LIMIT 1
+    ''', [storyId]);
+    return rows.isNotEmpty;
+  }
+
   /// Noms des personnages qui parlent dans l'histoire, du plus fréquent au
   /// moins fréquent.
   Future<List<String>> speakers(int storyId) async {

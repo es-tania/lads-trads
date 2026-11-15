@@ -287,4 +287,16 @@ void main() {
     final r = const ImageCrop(x: 0, y: 0.5, d: 0.5).frameIn(size, aspect: 3 / 4);
     expect(r, const Rect.fromLTWH(0, 75, 112.5, 150));
   });
+
+  test("hasEnglish dit si l'histoire a été importée avec l'anglais", () async {
+    final folder = await repo.folderFor((await repo.characters()).first.id, FolderType.other);
+    final withEn = await storyIn(folder);
+    final frOnly = await repo.saveStory(
+      folderId: folder,
+      title: 'Sans anglais',
+      parsed: parseStoryParagraphs(fr: [p('FIN', h1: true), p('Il part.')]),
+    );
+    expect(await repo.hasEnglish(withEn), isTrue);
+    expect(await repo.hasEnglish(frOnly), isFalse);
+  });
 }

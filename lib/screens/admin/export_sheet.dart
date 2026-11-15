@@ -13,7 +13,10 @@ const _docxMime = 'application/vnd.openxmlformats-officedocument.wordprocessingm
 
 /// Panneau « Exporter en .docx » d'une histoire.
 Future<void> showExportSheet(BuildContext context, Story story, {ExportTarget target = const _DeviceExportTarget()}) =>
-    showInkSheet<void>(context, builder: (_) => ExportSheet(story: story, target: target));
+    showInkSheet<void>(
+      context,
+      builder: (_) => ExportSheet(story: story, target: target),
+    );
 
 /// Enregistre ou partage les fichiers produits. Remplaçable dans les tests.
 abstract class ExportTarget {
@@ -40,11 +43,13 @@ class _DeviceExportTarget implements ExportTarget {
 
   @override
   Future<void> share(List<ExportFile> files, {required String subject}) async {
-    await SharePlus.instance.share(ShareParams(
-      subject: subject,
-      files: [for (final f in files) XFile.fromData(f.bytes, name: f.name, mimeType: _docxMime)],
-      fileNameOverrides: [for (final f in files) f.name],
-    ));
+    await SharePlus.instance.share(
+      ShareParams(
+        subject: subject,
+        files: [for (final f in files) XFile.fromData(f.bytes, name: f.name, mimeType: _docxMime)],
+        fileNameOverrides: [for (final f in files) f.name],
+      ),
+    );
   }
 }
 
@@ -62,6 +67,24 @@ class _ExportSheetState extends State<ExportSheet> {
   var _language = ExportLanguage.fr;
   var _notes = false;
   var _busy = false;
+
+  /// Sans anglais importé, seul le français a du sens.
+  var _hasEnglish = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final has = await context.library.hasEnglish(widget.story.id);
+      if (mounted && !has) {
+        setState(() {
+          _hasEnglish = false;
+          _language = ExportLanguage.fr;
+        });
+      }
+    });
+  }
 
   /// L'anglais n'a pas de notes : elles sont sur la traduction.
   bool get _notesApply => _language != ExportLanguage.en;
@@ -83,7 +106,9 @@ class _ExportSheetState extends State<ExportSheet> {
         if (saved > 0) {
           messenger
             ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(saved == 1 ? 'Fichier enregistré.' : '$saved fichiers enregistrés.')));
+            ..showSnackBar(
+              SnackBar(content: Text(saved == 1 ? 'Fichier enregistré.' : '$saved fichiers enregistrés.')),
+            );
           if (mounted) Navigator.pop(context);
           return;
         }
@@ -105,7 +130,14 @@ class _ExportSheetState extends State<ExportSheet> {
         const SizedBox(height: 20),
         const Text('Langue', style: TextStyle(fontSize: 13, color: InkColors.textMuted)),
         const SizedBox(height: 8),
-        _LanguageList(value: _language, onChanged: (l) => setState(() => _language = l)),
+        _LanguageList(value: _language, englishAvailable: _hasEnglish, onChanged: (l) => setState(() => _language = l)),
+        if (!_hasEnglish) ...[
+          const SizedBox(height: 8),
+          const Text(
+            "Histoire importée sans anglais : seul le français s'exporte.",
+            style: TextStyle(fontSize: 13, color: InkColors.textFaint),
+          ),
+        ],
         const SizedBox(height: 20),
         Opacity(
           opacity: _notesApply ? 1 : 0.4,
@@ -171,7 +203,9 @@ class _ExportSheetState extends State<ExportSheet> {
 
 /// Boutons radio des langues, avec une explication sous chacune.
 class _LanguageList extends StatelessWidget {
-  const _LanguageList({required this.value, required this.onChanged});
+  const _LanguageList({required this.value, required this.onChanged, required this.englishAvailable});
+
+  final bool englishAvailable;
 
   final ExportLanguage value;
   final ValueChanged<ExportLanguage> onChanged;
@@ -191,7 +225,7 @@ class _LanguageList extends StatelessWidget {
           children: [
             for (final (i, language) in ExportLanguage.values.indexed) ...[
               if (i > 0) const SizedBox(height: 2),
-              _option(language, language == value),
+              _option(language, language == value, enabled: englishAvailable || language == ExportLanguage.fr),
             ],
           ],
         ),
@@ -199,49 +233,56 @@ class _LanguageList extends StatelessWidget {
     );
   }
 
-  Widget _option(ExportLanguage language, bool selected) {
-    return Semantics(
-      selected: selected,
-      inMutuallyExclusiveGroup: true,
-      button: true,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => onChanged(language),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          constraints: const BoxConstraints(minHeight: 52),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(color: selected ? InkColors.raised : null, borderRadius: BorderRadius.circular(8)),
-          child: Row(
-            children: [
-              Container(
-                width: 16,
-                height: 16,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: selected ? InkColors.accent : InkColors.textFaint, width: 1.5),
+  Widget _option(ExportLanguage language, bool selected, {required bool enabled}) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.4,
+      child: Semantics(
+        enabled: enabled,
+        selected: selected,
+        inMutuallyExclusiveGroup: true,
+        button: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: enabled ? () => onChanged(language) : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            constraints: const BoxConstraints(minHeight: 52),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? InkColors.raised : null,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: selected ? InkColors.accent : InkColors.textFaint, width: 1.5),
+                  ),
+                  child: selected
+                      ? Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(color: InkColors.accent, shape: BoxShape.circle),
+                        )
+                      : null,
                 ),
-                child: selected
-                    ? Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(color: InkColors.accent, shape: BoxShape.circle),
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(language.label, style: const TextStyle(fontSize: 15, color: InkColors.text)),
-                    const SizedBox(height: 2),
-                    Text(language.hint, style: const TextStyle(fontSize: 13, color: InkColors.textFaint)),
-                  ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(language.label, style: const TextStyle(fontSize: 15, color: InkColors.text)),
+                      const SizedBox(height: 2),
+                      Text(language.hint, style: const TextStyle(fontSize: 13, color: InkColors.textFaint)),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
