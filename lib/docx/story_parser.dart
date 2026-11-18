@@ -81,11 +81,16 @@ ParaInfo classifyParagraph(DocParagraph p, {bool inChoice = false}) {
   return ParaInfo(ParaKind.narration, text);
 }
 
+/// Personnage dont le nom n'est pas encore connu dans le jeu : « ?? »,
+/// « ??? » (y compris le point d'interrogation pleine chasse « ？ »).
+final _unknownSpeaker = RegExp(r'^[?？]+$');
+
 bool _looksLikeSpeaker(String s) =>
-    s.isNotEmpty &&
-    s.length <= _maxSpeakerLength &&
-    s.split(RegExp(r'\s+')).length <= _maxSpeakerWords &&
-    !_sentencePunctuation.hasMatch(s);
+    _unknownSpeaker.hasMatch(s) ||
+    (s.isNotEmpty &&
+        s.length <= _maxSpeakerLength &&
+        s.split(RegExp(r'\s+')).length <= _maxSpeakerWords &&
+        !_sentencePunctuation.hasMatch(s));
 
 /// Paragraphe utile d'un fichier, avec sa position d'origine dans le .docx.
 class _Kept {

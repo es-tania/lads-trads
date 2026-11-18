@@ -140,6 +140,30 @@ void main() {
       expect(info.speaker, 'Propriétaire de la boutique de vins');
     });
 
+    test('« ?? : » et « ??? : » sont des personnages inconnus', () {
+      for (final name in ['?', '??', '???', '？？']) {
+        final info = classifyParagraph(p('$name : Qui es-tu ?'));
+        expect(info.kind, ParaKind.dialogue, reason: name);
+        expect(info.speaker, name);
+        expect(info.text, 'Qui es-tu ?');
+      }
+      expect(classifyParagraph(p('??: (Encore lui…)')).kind, ParaKind.thought);
+      // Une vraie phrase avec « ? » avant « : » reste de la narration.
+      expect(classifyParagraph(p('Tu viens ? Il me demande : non.')).kind, ParaKind.narration);
+    });
+
+    test('« ?? » en FR et en EN restent appariés', () {
+      final story = parseStoryParagraphs(
+        fr: [p('ÉPISODE 1', h1: true), p('?? : Tu es là ?'), p('Moi : Oui.')],
+        en: [p('EPISODE 1', h1: true), p('?? : You there?'), p('Me : Yes.')],
+      );
+      expect(story.warnings, isEmpty);
+      final first = story.parts.single.allLines.first;
+      expect(first.speaker!.fr, '??');
+      expect(first.speaker!.en, '??');
+      expect(first.text.en, 'You there?');
+    });
+
     test('un « --- » hors choix présent d\'un seul côté ne décale rien', () {
       final story = parseStoryParagraphs(
         fr: [p('ÉPISODE 1', h1: true), p('Rafayel : Salut.'), p('Moi : Bonjour.')],
