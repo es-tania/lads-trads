@@ -3,7 +3,10 @@ import 'package:material_ui/material_ui.dart';
 import '../theme/ink.dart';
 
 /// Panneau du bas aux couleurs « ink », qui suit le clavier.
-Future<T?> showInkSheet<T>(BuildContext context, {required WidgetBuilder builder}) {
+///
+/// [scrollable] `false` : le contenu n'est pas mis dans une liste qui
+/// défile (pour un contenu qui a besoin de sa hauteur, comme un recadrage).
+Future<T?> showInkSheet<T>(BuildContext context, {required WidgetBuilder builder, bool scrollable = true}) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
@@ -18,31 +21,48 @@ Future<T?> showInkSheet<T>(BuildContext context, {required WidgetBuilder builder
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
         top: false,
-        child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 32), child: builder(context)),
+        child: scrollable
+            ? SingleChildScrollView(padding: _padding, child: builder(context))
+            : Padding(padding: _padding, child: builder(context)),
       ),
     ),
   );
 }
 
+const _padding = EdgeInsets.fromLTRB(20, 8, 20, 32);
+
+/// Poignée en haut d'un panneau.
+class InkSheetGrabber extends StatelessWidget {
+  const InkSheetGrabber({super.key, this.color = InkColors.grabber});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+      ),
+    );
+  }
+}
+
 /// Poignée, surtitre, titre et croix d'un panneau.
 class InkSheetHeader extends StatelessWidget {
-  const InkSheetHeader({super.key, required this.title, this.eyebrow});
+  const InkSheetHeader({super.key, required this.title, this.eyebrow, this.titleSize = 24});
 
   final String title;
   final String? eyebrow;
+  final double titleSize;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Center(
-          child: Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(color: InkColors.grabber, borderRadius: BorderRadius.circular(2)),
-          ),
-        ),
+        const InkSheetGrabber(),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -53,9 +73,9 @@ class InkSheetHeader extends StatelessWidget {
                   if (eyebrow != null) ...[Text(eyebrow!, style: InkText.count), const SizedBox(height: 4)],
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: InkFonts.display,
-                      fontSize: 24,
+                      fontSize: titleSize,
                       height: 1.15,
                       fontWeight: FontWeight.w600,
                     ),

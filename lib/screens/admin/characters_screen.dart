@@ -9,6 +9,7 @@ import '../../data/services.dart';
 import '../../theme/ink.dart';
 import '../../widgets/character_avatar.dart';
 import '../../widgets/image_crop.dart';
+import '../../widgets/ink_sheet.dart';
 import '../../widgets/ink_widgets.dart';
 
 /// Écran admin : image et recadrage de chaque personnage, ajout d'un personnage.
@@ -195,19 +196,7 @@ class _AddCharacterDialogState extends State<_AddCharacterDialog> {
 
 /// Panneau du bas : choisir l'image d'un personnage et placer le cercle.
 Future<void> showCharacterImageSheet(BuildContext context, Character character) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: InkColors.surface,
-    barrierColor: InkColors.barrier,
-    showDragHandle: false,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      side: BorderSide(color: InkColors.borderSoft),
-    ),
-    builder: (_) => _ImageSheet(character: character),
-  );
+  return showInkSheet<void>(context, scrollable: false, builder: (_) => _ImageSheet(character: character));
 }
 
 class _ImageSheet extends StatefulWidget {
@@ -274,97 +263,85 @@ class _ImageSheetState extends State<_ImageSheet> {
   Widget build(BuildContext context) {
     final image = _image;
     final name = widget.character.name;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const InkSheetGrabber(color: InkColors.borderStrong),
+        const SizedBox(height: 16),
+        Row(
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(color: InkColors.borderStrong, borderRadius: BorderRadius.circular(2)),
+            Expanded(
+              child: Text(
+                'Image de $name',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontFamily: InkFonts.display, fontSize: 20, fontWeight: FontWeight.w600),
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Image de $name',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontFamily: InkFonts.display, fontSize: 20, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(44, 36),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
-                  ),
-                  child: const Text('Annuler'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (image == null)
-              const _NoImage()
-            else
-              ResolvedImage(
-                image: image,
-                placeholder: const SizedBox(height: 240),
-                builder: (context, img) => Column(
-                  children: [
-                    ImageCropEditor(image: img, crop: _crop, oval: true, onChanged: (c) => setState(() => _crop = c)),
-                    const SizedBox(height: 8),
-                    const Text('Glisse le cercle sur le visage', style: TextStyle(fontSize: 13, color: InkColors.textFaint)),
-                  ],
-                ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(44, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
               ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                if (image != null) ...[
-                  Semantics(
-                    label: 'Aperçu',
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: InkColors.borderSoft, spreadRadius: 1)],
-                      ),
-                      child: CharacterAvatar(size: 48, initial: widget.character.initial, image: image, crop: _crop),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _saving ? null : _pick,
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: InkColors.raised,
-                      minimumSize: const Size(44, 48),
-                      textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
-                    ),
-                    child: const Text('Choisir une image'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: image == null || _saving ? null : _save,
-                    child: const Text('Enregistrer'),
-                  ),
-                ),
-              ],
+              child: const Text('Annuler'),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 16),
+        if (image == null)
+          const _NoImage()
+        else
+          ResolvedImage(
+            image: image,
+            placeholder: const SizedBox(height: 240),
+            builder: (context, img) => Column(
+              children: [
+                ImageCropEditor(image: img, crop: _crop, oval: true, onChanged: (c) => setState(() => _crop = c)),
+                const SizedBox(height: 8),
+                const Text(
+                  'Glisse le cercle sur le visage',
+                  style: TextStyle(fontSize: 13, color: InkColors.textFaint),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            if (image != null) ...[
+              Semantics(
+                label: 'Aperçu',
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: InkColors.borderSoft, spreadRadius: 1)],
+                  ),
+                  child: CharacterAvatar(size: 48, initial: widget.character.initial, image: image, crop: _crop),
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _saving ? null : _pick,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: InkColors.raised,
+                  minimumSize: const Size(44, 48),
+                  textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
+                ),
+                child: const Text('Choisir une image'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton(onPressed: image == null || _saving ? null : _save, child: const Text('Enregistrer')),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

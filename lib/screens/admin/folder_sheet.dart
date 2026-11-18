@@ -5,6 +5,7 @@ import '../../data/library_repository.dart';
 import '../../data/models.dart';
 import '../../data/services.dart';
 import '../../theme/ink.dart';
+import '../../widgets/ink_sheet.dart';
 
 /// Panneau du bas pour créer un dossier, ou modifier [folder].
 ///
@@ -16,16 +17,8 @@ Future<void> showFolderSheet(
   int? characterId,
   Folder? folder,
 }) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: InkColors.surface,
-    barrierColor: InkColors.barrier,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      side: BorderSide(color: InkColors.borderSoft),
-    ),
+  return showInkSheet<void>(
+    context,
     builder: (_) => _FolderSheet(
       characters: characters,
       characterId: folder?.characterId ?? characterId ?? characters.first.id,
@@ -36,13 +29,7 @@ Future<void> showFolderSheet(
 }
 
 /// Types proposés, dans l'ordre de la maquette.
-const _types = [
-  FolderType.memoria,
-  FolderType.myths,
-  FolderType.secretTime,
-  FolderType.tenderMoment,
-  FolderType.other,
-];
+const _types = [FolderType.memoria, FolderType.myths, FolderType.secretTime, FolderType.tenderMoment, FolderType.other];
 
 class _FolderSheet extends StatefulWidget {
   const _FolderSheet({required this.characters, required this.characterId, required this.navigator, this.folder});
@@ -137,9 +124,11 @@ class _FolderSheetState extends State<_FolderSheet> {
     final count = (await library.stories(folder.id)).length;
     if (!mounted) return;
     if (count > 0) {
-      setState(() => _error = count == 1
-          ? 'Ce dossier contient 1 histoire : déplace-la ou supprime-la d\'abord.'
-          : 'Ce dossier contient $count histoires : déplace-les ou supprime-les d\'abord.');
+      setState(
+        () => _error = count == 1
+            ? 'Ce dossier contient 1 histoire : déplace-la ou supprime-la d\'abord.'
+            : 'Ce dossier contient $count histoires : déplace-les ou supprime-les d\'abord.',
+      );
       return;
     }
     final confirmed = await showDialog<bool>(
@@ -168,162 +157,94 @@ class _FolderSheetState extends State<_FolderSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final fieldDecoration = InputDecoration(
-      fillColor: InkColors.bg,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: InkColors.borderStrong),
-      ),
-    );
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(color: InkColors.grabber, borderRadius: BorderRadius.circular(2)),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkSheetHeader(title: _editing ? 'Modifier le dossier' : 'Nouveau dossier', titleSize: 22),
+        const SizedBox(height: 20),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _Labeled(
+                label: 'Nom',
+                child: TextField(
+                  controller: _name,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: inkSheetField(hint: 'Nom du dossier', strong: true),
+                  onChanged: (_) => setState(() {
+                    _nameEdited = true;
+                    _error = null;
+                  }),
                 ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _editing ? 'Modifier le dossier' : 'Nouveau dossier',
-                      style: const TextStyle(
-                        fontFamily: InkFonts.display,
-                        fontSize: 22,
-                        height: 1.15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Fermer',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _Labeled(
-                      label: 'Nom',
-                      child: TextField(
-                        controller: _name,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: fieldDecoration.copyWith(hintText: 'Nom du dossier'),
-                        onChanged: (_) => setState(() {
-                          _nameEdited = true;
-                          _error = null;
-                        }),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _Labeled(
-                      label: 'Personnage',
-                      child: DropdownButtonFormField<int>(
-                        initialValue: _characterId,
-                        isExpanded: true,
-                        dropdownColor: InkColors.raised,
-                        decoration: fieldDecoration.copyWith(
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: InkColors.border),
-                          ),
-                        ),
-                        items: [
-                          for (final c in widget.characters) DropdownMenuItem(value: c.id, child: Text(c.name)),
-                        ],
-                        onChanged: (id) => setState(() {
-                          _characterId = id ?? _characterId;
-                          _error = null;
-                        }),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(_error!, style: const TextStyle(fontSize: 13, color: InkColors.error)),
-              ],
-              const SizedBox(height: 20),
-              _Labeled(
-                label: "Type d'histoire",
-                gap: 8,
-                child: _TypeList(selected: _type, onChanged: _setType),
-              ),
-              if (_type == FolderType.memoria) ...[
-                const SizedBox(height: 20),
-                _Labeled(
-                  label: 'Rareté',
-                  gap: 8,
-                  child: _RarityPicker(value: _rarity, onChanged: (r) => _setType(FolderType.memoria, rarity: r)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _Labeled(
+                label: 'Personnage',
+                child: DropdownButtonFormField<int>(
+                  initialValue: _characterId,
+                  isExpanded: true,
+                  dropdownColor: InkColors.raised,
+                  decoration: inkSheetField(),
+                  items: [for (final c in widget.characters) DropdownMenuItem(value: c.id, child: Text(c.name))],
+                  onChanged: (id) => setState(() {
+                    _characterId = id ?? _characterId;
+                    _error = null;
+                  }),
                 ),
-              ],
-              if (_editing) ...[
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _saving ? null : _delete,
-                    style: TextButton.styleFrom(
-                      foregroundColor: InkColors.danger,
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
-                    ),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                    label: const Text('Supprimer le dossier'),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: InkColors.transparent,
-                        minimumSize: const Size(44, 48),
-                        textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
-                      ),
-                      child: const Text('Annuler'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: ListenableBuilder(
-                      listenable: _name,
-                      builder: (context, _) => FilledButton(
-                        onPressed: _name.text.trim().isEmpty || _saving ? null : _save,
-                        child: Text(_editing ? 'Enregistrer' : 'Créer le dossier'),
-                      ),
-                    ),
-                  ),
-                ],
               ),
-            ],
+            ),
+          ],
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Text(_error!, style: const TextStyle(fontSize: 13, color: InkColors.error)),
+        ],
+        const SizedBox(height: 20),
+        _Labeled(
+          label: "Type d'histoire",
+          gap: 8,
+          child: _TypeList(selected: _type, onChanged: _setType),
+        ),
+        if (_type == FolderType.memoria) ...[
+          const SizedBox(height: 20),
+          _Labeled(
+            label: 'Rareté',
+            gap: 8,
+            child: _RarityPicker(
+              value: _rarity,
+              onChanged: (r) => _setType(FolderType.memoria, rarity: r),
+            ),
+          ),
+        ],
+        if (_editing) ...[
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _saving ? null : _delete,
+              style: TextButton.styleFrom(
+                foregroundColor: InkColors.danger,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
+              ),
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text('Supprimer le dossier'),
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        ListenableBuilder(
+          listenable: _name,
+          builder: (context, _) => InkSheetActions(
+            label: _editing ? 'Enregistrer' : 'Créer le dossier',
+            onPressed: _name.text.trim().isEmpty || _saving ? null : _save,
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -400,10 +321,7 @@ class _TypeOption extends StatelessWidget {
           curve: Curves.easeOutCubic,
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: selected ? InkColors.raised : null,
-            borderRadius: BorderRadius.circular(8),
-          ),
+          decoration: BoxDecoration(color: selected ? InkColors.raised : null, borderRadius: BorderRadius.circular(8)),
           child: Row(
             children: [
               Container(
