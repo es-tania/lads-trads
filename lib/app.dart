@@ -1,11 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'screens/admin/characters_screen.dart';
-import 'screens/admin/editor_screen.dart';
-import 'screens/admin/import_screen.dart';
+import 'screens/admin/characters/characters_screen.dart';
+import 'screens/admin/editor/editor_screen.dart';
+import 'screens/admin/import/import_screen.dart';
 import 'screens/admin/story_admin_screen.dart';
 import 'screens/folder_screen.dart';
-import 'screens/library_screen.dart';
+import 'screens/library/library_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/story_screen.dart';
 import 'theme/ink.dart';

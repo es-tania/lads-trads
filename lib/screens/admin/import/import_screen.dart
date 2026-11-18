@@ -2,17 +2,18 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../app.dart';
-import '../../data/models.dart';
-import '../../data/services.dart';
-import '../../docx/docx_reader.dart';
-import '../../docx/story_model.dart';
-import '../../docx/story_parser.dart';
-import '../../theme/ink.dart';
-import '../../widgets/image_crop.dart';
-import '../../widgets/ink_widgets.dart';
-import 'folder_choice.dart';
-import '../../widgets/ink_labeled.dart';
+import '../../../app.dart';
+import '../../../data/models.dart';
+import '../../../data/services.dart';
+import '../../../docx/docx_reader.dart';
+import '../../../docx/story_model.dart';
+import '../../../docx/story_parser.dart';
+import '../../../theme/ink.dart';
+import '../../../widgets/image_crop.dart';
+import '../../../widgets/ink_labeled.dart';
+import '../../../widgets/ink_widgets.dart';
+import '../folder_choice.dart';
+import 'import_widgets.dart';
 
 /// Fichier choisi par la traductrice.
 class _Picked {
@@ -258,7 +259,7 @@ class _ImportScreenState extends State<ImportScreen> {
                         const InkSectionLabel('Classement'),
                         _classification(characters, choices),
                       ],
-                      if (_parsed != null) ...[const SizedBox(height: 24), _Checks(parsed: _parsed!, withEnglish: _en != null)],
+                      if (_parsed != null) ...[const SizedBox(height: 24), ImportChecks(parsed: _parsed!, withEnglish: _en != null)],
                     ],
                   ),
                 ),
@@ -290,15 +291,15 @@ class _ImportScreenState extends State<ImportScreen> {
 
     return InkGroup(
       children: [
-        _FileRow(
-          badge: const _Badge('FR'),
+        ImportFileRow(
+          badge: const ImportBadge('FR'),
           title: 'Texte français',
           detail: _fr == null ? 'Choisir FR.docx' : [_fr!.name, ?frInfo].join(' · '),
           onTap: () => _pickDocx(french: true),
           changeLabel: _fr == null ? 'Choisir' : 'Changer',
         ),
-        _FileRow(
-          badge: const _Badge('EN'),
+        ImportFileRow(
+          badge: const ImportBadge('EN'),
           title: 'Texte anglais',
           subtitle: 'facultatif',
           detail: _en == null ? 'Sans anglais · choisir EN.docx' : [_en!.name, ?enInfo].join(' · '),
@@ -308,9 +309,9 @@ class _ImportScreenState extends State<ImportScreen> {
           onExtra: _removeEnglish,
         ),
         if (!widget.replacing)
-          _FileRow(
+          ImportFileRow(
             badge: _cover == null
-                ? const _Badge(null)
+                ? const ImportBadge(null)
                 : ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: SizedBox(
@@ -393,146 +394,6 @@ class _ImportScreenState extends State<ImportScreen> {
           label: 'Titre',
           child: TextField(controller: _title, textCapitalization: TextCapitalization.sentences),
         ),
-      ],
-    );
-  }
-}
-
-
-class _Badge extends StatelessWidget {
-  const _Badge(this.text);
-
-  final String? text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 30,
-      height: 40,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(color: InkColors.raised, borderRadius: BorderRadius.circular(4)),
-      child: text == null
-          ? const Icon(Icons.image_outlined, size: 16, color: InkColors.textFaint)
-          : Text(text!, style: const TextStyle(fontFamily: InkFonts.mono, fontSize: 11)),
-    );
-  }
-}
-
-class _FileRow extends StatelessWidget {
-  const _FileRow({
-    required this.badge,
-    required this.title,
-    required this.detail,
-    required this.onTap,
-    required this.changeLabel,
-    this.subtitle,
-    this.extraLabel,
-    this.onExtra,
-  });
-
-  /// Deuxième action (« Changer » à côté de « Recadrer »).
-  final String? extraLabel;
-  final VoidCallback? onExtra;
-
-  final Widget badge;
-  final String title;
-  final String? subtitle;
-  final String detail;
-  final VoidCallback onTap;
-  final String changeLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-        child: Row(
-          children: [
-            badge,
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text.rich(
-                    TextSpan(
-                      text: title,
-                      style: InkText.row,
-                      children: [
-                        if (subtitle != null)
-                          TextSpan(
-                            text: '  $subtitle',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w400,
-                              color: InkColors.textFaint,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(detail, style: InkText.count, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-            TextButton(
-              onPressed: onTap,
-              child: Text(changeLabel, style: const TextStyle(fontSize: 14)),
-            ),
-            if (extraLabel != null)
-              TextButton(
-                onPressed: onExtra,
-                child: Text(extraLabel!, style: const TextStyle(fontSize: 14)),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Section « À vérifier » : avertissements du parseur.
-class _Checks extends StatelessWidget {
-  const _Checks({required this.parsed, required this.withEnglish});
-
-  final ParsedStory parsed;
-  final bool withEnglish;
-
-  @override
-  Widget build(BuildContext context) {
-    final warnings = parsed.warnings;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        InkSectionLabel(warnings.isEmpty ? 'À vérifier' : 'À vérifier · ${warnings.length}'),
-        if (warnings.isEmpty)
-          InkComingSoon(text: withEnglish ? 'Rien à signaler : FR et EN sont alignés.' : 'Rien à signaler.')
-        else
-          InkGroup(
-            children: [
-              for (final w in warnings.take(20))
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 48,
-                        child: Text(w.paragraph == null ? '—' : '§${w.paragraph}', style: InkText.count),
-                      ),
-                      Expanded(child: Text(w.message, style: const TextStyle(fontSize: 14, height: 1.35))),
-                    ],
-                  ),
-                ),
-              if (warnings.length > 20)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('… et ${warnings.length - 20} autres.', style: InkText.body),
-                ),
-            ],
-          ),
       ],
     );
   }

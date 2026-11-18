@@ -1,12 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../data/models.dart';
-import '../../data/services.dart';
-import '../../theme/ink.dart';
-import '../../widgets/ink_segmented.dart';
-import '../../widgets/ink_sheet.dart';
-import '../../widgets/markup_field.dart';
-import '../../widgets/ink_labeled.dart';
+import '../../../data/models.dart';
+import '../../../data/services.dart';
+import '../../../theme/ink.dart';
+import '../../../widgets/ink_labeled.dart';
+import '../../../widgets/ink_segmented.dart';
+import '../../../widgets/ink_sheet.dart';
+import '../../../widgets/markup_field.dart';
+import 'speaker_dialogs.dart';
 
 /// Contenu saisi dans le panneau d'une réplique.
 class LineDraft {
@@ -104,7 +105,7 @@ class _LineSheetState extends State<_LineSheet> {
   bool get _valid => _text.text.trim().isNotEmpty && (_kind == LineRowKind.narration || _speaker != null);
 
   Future<void> _otherSpeaker() async {
-    final name = await showDialog<String>(context: context, builder: (_) => const _SpeakerDialog());
+    final name = await showDialog<String>(context: context, builder: (_) => const NewSpeakerDialog());
     final trimmed = name?.trim();
     if (trimmed == null || trimmed.isEmpty || !mounted) return;
     setState(() {
@@ -125,7 +126,7 @@ class _LineSheetState extends State<_LineSheet> {
     if (!mounted) return;
     final result = await showDialog<(String, bool)>(
       context: context,
-      builder: (_) => _RenameSpeakerDialog(name: from, counts: counts),
+      builder: (_) => RenameSpeakerDialog(name: from, counts: counts),
     );
     if (result == null || !mounted) return;
     final (to, everywhere) = result;
@@ -303,7 +304,6 @@ class _LineSheetState extends State<_LineSheet> {
   }
 }
 
-
 class _SpeakerChip extends StatelessWidget {
   const _SpeakerChip({required this.name, required this.onTap, this.selected = false, this.other = false});
 
@@ -384,243 +384,6 @@ class _SmallButton extends StatelessWidget {
         textStyle: InkText.buttonSmall,
       ),
       child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-    );
-  }
-}
-
-/// Nouveau nom d'un personnage, et où le changer. Renvoie (nom, partout).
-class _RenameSpeakerDialog extends StatefulWidget {
-  const _RenameSpeakerDialog({required this.name, required this.counts});
-
-  final String name;
-
-  /// Répliques concernées ; `null` pour un nom pas encore enregistré.
-  final ({int inStory, int everywhere})? counts;
-
-  @override
-  State<_RenameSpeakerDialog> createState() => _RenameSpeakerDialogState();
-}
-
-class _RenameSpeakerDialogState extends State<_RenameSpeakerDialog> {
-  late final _name = TextEditingController(text: widget.name)..addListener(() => setState(() {}));
-  var _everywhere = false;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  static String _lines(int n) => n == 1 ? '1 réplique' : '$n répliques';
-
-  @override
-  Widget build(BuildContext context) {
-    final counts = widget.counts;
-    final to = _name.text.trim();
-    final others = counts == null ? 0 : counts.everywhere - counts.inStory;
-    return AlertDialog(
-      backgroundColor: InkColors.surface,
-      title: const Text('Renommer le personnage'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _name,
-            autofocus: true,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(hintText: 'Nom'),
-          ),
-          if (counts != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              '${_lines(counts.inStory)} dans cette histoire',
-              style: InkText.label,
-            ),
-            if (others > 0)
-              CheckboxListTile(
-                value: _everywhere,
-                onChanged: (v) => setState(() => _everywhere = v ?? false),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Dans toutes les histoires', style: TextStyle(fontSize: 15)),
-                subtitle: Text(
-                  '+ ${_lines(others)} ailleurs',
-                  style: InkText.hint,
-                ),
-              ),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        FilledButton(
-          onPressed: to.isEmpty || to == widget.name ? null : () => Navigator.pop(context, (to, _everywhere)),
-          child: const Text('Renommer'),
-        ),
-      ],
-    );
-  }
-}
-
-class _SpeakerDialog extends StatefulWidget {
-  const _SpeakerDialog();
-
-  @override
-  State<_SpeakerDialog> createState() => _SpeakerDialogState();
-}
-
-class _SpeakerDialogState extends State<_SpeakerDialog> {
-  final _name = TextEditingController();
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: InkColors.surface,
-      title: const Text('Autre personnage'),
-      content: TextField(
-        controller: _name,
-        autofocus: true,
-        textCapitalization: TextCapitalization.words,
-        decoration: const InputDecoration(hintText: 'Nom'),
-        onSubmitted: (v) => Navigator.pop(context, v),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
-        ListenableBuilder(
-          listenable: _name,
-          builder: (context, _) => FilledButton(
-            onPressed: _name.text.trim().isEmpty ? null : () => Navigator.pop(context, _name.text),
-            child: const Text('Choisir'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Panneau d'une branche : renommer, supprimer, ou créer ([option] `null`).
-Future<OptionSheetResult?> showOptionSheet(
-  BuildContext context, {
-  required String eyebrow,
-  required String title,
-  LineRow? option,
-  int branchLines = 0,
-}) {
-  return showInkSheet<OptionSheetResult>(
-    context,
-    builder: (_) => _OptionSheet(eyebrow: eyebrow, title: title, option: option, branchLines: branchLines),
-  );
-}
-
-sealed class OptionSheetResult {
-  const OptionSheetResult();
-}
-
-class OptionSaved extends OptionSheetResult {
-  const OptionSaved(this.label);
-  final String label;
-}
-
-class OptionDeleted extends OptionSheetResult {
-  const OptionDeleted();
-}
-
-class _OptionSheet extends StatefulWidget {
-  const _OptionSheet({required this.eyebrow, required this.title, required this.branchLines, this.option});
-
-  final String eyebrow;
-  final String title;
-  final LineRow? option;
-  final int branchLines;
-
-  @override
-  State<_OptionSheet> createState() => _OptionSheetState();
-}
-
-class _OptionSheetState extends State<_OptionSheet> {
-  late final _label = TextEditingController(text: widget.option?.text ?? '')..addListener(() => setState(() {}));
-
-  @override
-  void dispose() {
-    _label.dispose();
-    super.dispose();
-  }
-
-  Future<void> _delete() async {
-    final n = widget.branchLines;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: InkColors.raised,
-        title: const Text('Supprimer la branche ?'),
-        content: Text(
-          n == 0
-              ? 'La branche est vide.'
-              : n == 1
-              ? 'Sa réplique sera effacée aussi.'
-              : 'Ses $n répliques seront effacées aussi.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: InkColors.danger),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) Navigator.pop(context, const OptionDeleted());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkSheetHeader(eyebrow: widget.eyebrow, title: widget.title),
-        const SizedBox(height: 20),
-        InkLabeled(
-          gap: 8,
-          label: 'Libellé du choix',
-          child: TextField(
-            controller: _label,
-            autofocus: widget.option == null,
-            textCapitalization: TextCapitalization.sentences,
-            style: const TextStyle(fontFamily: InkFonts.display, fontSize: 18, color: InkColors.text),
-            decoration: inkSheetField(strong: true),
-          ),
-        ),
-        if (widget.option != null) ...[
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _delete,
-              style: TextButton.styleFrom(
-                foregroundColor: InkColors.danger,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                textStyle: InkText.buttonSmall,
-              ),
-              icon: const Icon(Icons.delete_outline_rounded, size: 18),
-              label: const Text('Supprimer la branche'),
-            ),
-          ),
-        ],
-        const SizedBox(height: 24),
-        InkSheetActions(
-          label: widget.option == null ? 'Ajouter' : 'Enregistrer',
-          onPressed: _label.text.trim().isEmpty ? null : () => Navigator.pop(context, OptionSaved(_label.text)),
-        ),
-      ],
     );
   }
 }
