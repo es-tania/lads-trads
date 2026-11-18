@@ -48,20 +48,19 @@ Future<List<ExportFile>> exportStory(
   LibraryRepository library,
   int storyId, {
   required ExportLanguage language,
-  bool notes = false,
 }) async {
   final story = await library.story(storyId);
   if (story == null) throw StateError('Histoire introuvable.');
   final parts = [for (final part in await library.parts(storyId)) (part, await library.lines(part.id))];
   final names = exportFileNames(story.title, language);
 
-  List<OutParagraph> one(_Lang lang) => _storyParagraphs(story, parts, lang: lang, notes: notes);
+  List<OutParagraph> one(_Lang lang) => _storyParagraphs(story, parts, lang: lang);
   return switch (language) {
     ExportLanguage.fr => [ExportFile(names[0], buildDocx(one(_Lang.fr)))],
     ExportLanguage.en => [ExportFile(names[0], buildDocx(one(_Lang.en)))],
     ExportLanguage.both => [
         ExportFile(names[0], buildDocx(one(_Lang.fr))),
-        ExportFile(names[1], buildDocx(_storyParagraphs(story, parts, lang: _Lang.en, notes: false))),
+        ExportFile(names[1], buildDocx(one(_Lang.en))),
       ],
     ExportLanguage.bilingual => [ExportFile(names[0], buildDocx(one(_Lang.bilingual)))],
   };
@@ -76,7 +75,6 @@ List<OutParagraph> _storyParagraphs(
   Story story,
   List<(Part, List<LineRow>)> parts, {
   required _Lang lang,
-  bool notes = false,
 }) {
   final out = <OutParagraph>[];
   final en = lang == _Lang.en;
@@ -102,16 +100,15 @@ List<OutParagraph> _storyParagraphs(
     }
 
     void line(LineRow r) {
-      final note = notes && r.note != null ? r.note : null;
       switch (lang) {
         case _Lang.fr:
-          out.add(_lineParagraph(r, en: false, comment: note));
+          out.add(_lineParagraph(r, en: false));
         case _Lang.en:
           // Une réplique ajoutée dans l'éditeur n'a pas d'anglais.
           if (r.textEn.trim().isNotEmpty) out.add(_lineParagraph(r, en: true));
         case _Lang.bilingual:
           if (r.textEn.trim().isNotEmpty) out.add(_lineParagraph(r, en: true, muted: true));
-          out.add(_lineParagraph(r, en: false, comment: note));
+          out.add(_lineParagraph(r, en: false));
       }
     }
 
@@ -150,11 +147,11 @@ String _choicePrompt(LineRow row, {required bool en}) {
 
 /// « Nom : texte », le nom en gras et le gras / l'italique du texte gardés ;
 /// une pensée garde ses parenthèses, pour être reconnue à la réimportation.
-OutParagraph _lineParagraph(LineRow r, {required bool en, bool muted = false, String? comment}) {
+OutParagraph _lineParagraph(LineRow r, {required bool en, bool muted = false}) {
   final text = en ? r.textEn : r.text;
   final spans = markupSpans(text);
   if (r.kind == LineRowKind.narration || r.speaker == null) {
-    return OutParagraph(plainText(text), spans: spans, muted: muted, comment: comment);
+    return OutParagraph(plainText(text), spans: spans, muted: muted);
   }
   final speaker = en && (r.speakerEn?.trim().isNotEmpty ?? false) ? r.speakerEn! : r.speaker!;
   final wrap = r.kind == LineRowKind.thought && !plainText(text).trimLeft().startsWith('(');
@@ -163,6 +160,5 @@ OutParagraph _lineParagraph(LineRow r, {required bool en, bool muted = false, St
     '$speaker : ${body.map((s) => s.text).join()}',
     spans: [MarkupSpan(speaker, bold: true), const MarkupSpan(' : '), ...body],
     muted: muted,
-    comment: comment,
   );
 }

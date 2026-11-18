@@ -79,7 +79,6 @@ LineRow _line(_Row r) => LineRow(
       speakerEn: r['speaker_en'] as String?,
       parentId: r['parent_id'] as int?,
       paragraph: r['paragraph'] as int?,
-      note: r['note'] as String?,
     );
 
 /// Texte sans espaces autour, ou `null` s'il est vide.

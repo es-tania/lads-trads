@@ -62,7 +62,7 @@ class _EditorScreenState extends State<EditorScreen> {
     final library = context.library;
     switch (result) {
       case LineSaved(:final draft):
-        await library.updateLine(line.id, kind: draft.kind, text: draft.text, speaker: draft.speaker, note: draft.note);
+        await library.updateLine(line.id, kind: draft.kind, text: draft.text, speaker: draft.speaker);
         _done(line.id);
       case LineInsert(:final after):
         await _newLine(
@@ -76,7 +76,6 @@ class _EditorScreenState extends State<EditorScreen> {
             kind: d.kind,
             text: d.text,
             speaker: d.speaker,
-            note: d.note,
           ),
         );
       case LineDeleted():
@@ -182,7 +181,6 @@ class _EditorScreenState extends State<EditorScreen> {
                         kind: d.kind,
                         text: d.text,
                         speaker: d.speaker,
-                        note: d.note,
                       ),
                     ),
                     onEditOption: (option, letter, n) => _editOption(part, option, letter, n),
@@ -197,7 +195,6 @@ class _EditorScreenState extends State<EditorScreen> {
                         kind: d.kind,
                         text: d.text,
                         speaker: d.speaker,
-                        note: d.note,
                       ),
                     ),
                   ),
@@ -212,7 +209,7 @@ class _EditorScreenState extends State<EditorScreen> {
               part,
               eyebrow: '${part.displayTitle} · à la fin',
               like: data.lines.where((l) => l.parentId == null && l.kind.isSpoken).lastOrNull,
-              save: (d) => library.appendLine(part.id, kind: d.kind, text: d.text, speaker: d.speaker, note: d.note),
+              save: (d) => library.appendLine(part.id, kind: d.kind, text: d.text, speaker: d.speaker),
             ),
           ),
         );
@@ -462,7 +459,7 @@ class _LineTile extends StatelessWidget {
   }
 }
 
-/// Personnage au-dessus du texte, et la note éventuelle dessous.
+/// Personnage au-dessus du texte.
 class _LineText extends StatelessWidget {
   const _LineText({required this.line, this.compact = false});
 
@@ -505,10 +502,6 @@ class _LineText extends StatelessWidget {
         else ...[
           if (!narration) ...[Text(speaker, style: speakerStyle), const SizedBox(height: 2)],
           MarkupText(line.text, style: textStyle),
-        ],
-        if (line.note != null) ...[
-          const SizedBox(height: 4),
-          Text('Note : ${line.note}', style: const TextStyle(fontSize: 12, color: InkColors.accent)),
         ],
       ],
     );

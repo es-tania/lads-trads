@@ -81,8 +81,8 @@ void main() {
 
   tearDown(() => covers.delete(recursive: true));
 
-  Future<ExportFile> export(ExportLanguage language, {bool notes = false}) async =>
-      (await exportStory(repo, storyId, language: language, notes: notes)).first;
+  Future<ExportFile> export(ExportLanguage language) async =>
+      (await exportStory(repo, storyId, language: language)).first;
 
   test('FR et EN exportés se réimportent à l\'identique', () async {
     final original = parseStoryParagraphs(fr: _fr, en: _en);
@@ -109,23 +109,6 @@ void main() {
     // Réplique ajoutée sans anglais : absente de l'EN.
     final en = readDocxParagraphs((await export(ExportLanguage.en)).bytes).map((x) => x.text).toList();
     expect(en, isNot(contains(contains('Enfin seuls'))));
-  });
-
-  test('les notes deviennent des commentaires Word, seulement si demandé', () async {
-    final part = (await repo.parts(storyId)).first;
-    final first = (await repo.lines(part.id)).first;
-    await repo.updateLine(first.id, kind: LineRowKind.dialogue, text: first.text, speaker: 'Rafayel', note: 'Vérifier « prêtes »');
-
-    String? comments(ExportFile f) {
-      final entry = ZipDecoder().decodeBytes(f.bytes).findFile('word/comments.xml');
-      return entry == null ? null : utf8.decode(entry.content);
-    }
-
-    expect(comments(await export(ExportLanguage.fr)), isNull);
-    final withNotes = await export(ExportLanguage.fr, notes: true);
-    expect(comments(withNotes), contains('Vérifier « prêtes »'));
-    // Le texte reste lisible et réimportable avec les commentaires.
-    expect(readDocxParagraphs(withNotes.bytes).map((x) => x.text), contains('Rafayel : Les couleurs sont prêtes.'));
   });
 
   test('le bilingue met l\'anglais puis le français, ligne par ligne', () async {

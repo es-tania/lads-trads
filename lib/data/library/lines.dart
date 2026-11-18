@@ -43,7 +43,6 @@ mixin _Lines on _LibraryBase {
     required LineRowKind kind,
     required String text,
     String? speaker,
-    String? note,
   }) async {
     _checkSpoken(kind);
     final row = await _lineById(lineId);
@@ -51,7 +50,7 @@ mixin _Lines on _LibraryBase {
     final speakerEn = await _speakerEnFor(row, who);
     await _db.update(
       'lines',
-      {'kind': kind.name, 'text': text.trim(), 'speaker': who, 'speaker_en': speakerEn, 'note': _clean(note)},
+      {'kind': kind.name, 'text': text.trim(), 'speaker': who, 'speaker_en': speakerEn},
       where: 'id = ?',
       whereArgs: [lineId],
     );
@@ -59,7 +58,7 @@ mixin _Lines on _LibraryBase {
   }
 
   /// Change le texte et le personnage d'une ligne pendant la lecture (depuis
-  /// la fenêtre flottante). La note est gardée.
+  /// la fenêtre flottante).
   ///
   /// [speaker] `null` : la ligne devient une narration (voir
   /// [LineRowKind.withSpeaker]). Renvoie le type obtenu.
@@ -122,7 +121,6 @@ mixin _Lines on _LibraryBase {
     required LineRowKind kind,
     required String text,
     String? speaker,
-    String? note,
   }) async {
     final row = await _lineById(lineId);
     final own = row['position']! as int;
@@ -134,7 +132,6 @@ mixin _Lines on _LibraryBase {
       kind: kind,
       text: text,
       speaker: speaker,
-      note: note,
     );
   }
 
@@ -146,7 +143,6 @@ mixin _Lines on _LibraryBase {
     required LineRowKind kind,
     required String text,
     String? speaker,
-    String? note,
   }) async {
     final int position;
     if (optionId == null) {
@@ -156,7 +152,7 @@ mixin _Lines on _LibraryBase {
       final option = await _lineById(optionId);
       position = await _lastPositionUnder(optionId, option['position']! as int) + 1;
     }
-    return _insertAt(partId, position, parentId: optionId, kind: kind, text: text, speaker: speaker, note: note);
+    return _insertAt(partId, position, parentId: optionId, kind: kind, text: text, speaker: speaker);
   }
 
   /// Ajoute une branche à la fin d'un choix.
@@ -186,7 +182,6 @@ mixin _Lines on _LibraryBase {
     required LineRowKind kind,
     required String text,
     String? speaker,
-    String? note,
   }) async {
     _checkSpoken(kind);
     final who = kind == LineRowKind.narration ? null : _clean(speaker);
@@ -202,7 +197,6 @@ mixin _Lines on _LibraryBase {
         'text': text.trim(),
         'text_en': '',
         'parent_id': parentId,
-        'note': _clean(note),
       });
     });
     notifyListeners();

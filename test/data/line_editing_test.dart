@@ -62,20 +62,18 @@ void main() {
 
   Future<LineRow> line(String text) async => (await repo.lines(partId)).firstWhere((l) => l.text == text);
 
-  test('modifie type, personnage, texte et note d\'une réplique', () async {
+  test('modifie type, personnage et texte d\'une réplique', () async {
     final hello = await line('Salut.');
-    await repo.updateLine(hello.id, kind: LineRowKind.thought, text: ' (Bonjour…) ', speaker: 'Moi', note: ' à revoir ');
+    await repo.updateLine(hello.id, kind: LineRowKind.thought, text: ' (Bonjour…) ', speaker: 'Moi');
     var edited = await line('(Bonjour…)');
     expect(edited.kind, LineRowKind.thought);
     expect(edited.speaker, 'Moi');
     expect(edited.speakerEn, isNull, reason: '« Moi » ne parle nulle part ailleurs');
-    expect(edited.note, 'à revoir');
     expect(edited.textEn, 'Hi.', reason: 'l\'anglais reste pour se repérer');
 
-    await repo.updateLine(hello.id, kind: LineRowKind.dialogue, text: 'Salut.', speaker: 'Rafayel', note: '');
+    await repo.updateLine(hello.id, kind: LineRowKind.dialogue, text: 'Salut.', speaker: 'Rafayel');
     edited = await line('Salut.');
     expect(edited.speakerEn, 'Rafayel', reason: 'nom anglais repris d\'une autre ligne');
-    expect(edited.note, isNull);
 
     await repo.updateLine(hello.id, kind: LineRowKind.narration, text: 'Silence.', speaker: 'Rafayel');
     expect((await line('Silence.')).speaker, isNull, reason: 'la narration n\'a pas de personnage');
@@ -139,15 +137,14 @@ void main() {
     expect(await outline(), ['dialogue:Salut.', 'narration:Il sourit.']);
   });
 
-  test('pendant la lecture : texte et personnage changent, la note reste', () async {
+  test('pendant la lecture : texte et personnage changent', () async {
     final hello = await line('Salut.');
-    await repo.updateLine(hello.id, kind: LineRowKind.dialogue, text: 'Salut.', speaker: 'Rafayel', note: 'à revoir');
     var notified = 0;
     repo.addListener(() => notified++);
 
     var kind = await repo.updateLineWhileReading(hello.id, text: '  Coucou.  ', speaker: 'Rafayel');
     var edited = await line('Coucou.');
-    expect((kind, edited.kind, edited.speaker, edited.textEn, edited.note), (LineRowKind.dialogue, LineRowKind.dialogue, 'Rafayel', 'Hi.', 'à revoir'));
+    expect((kind, edited.kind, edited.speaker, edited.textEn), (LineRowKind.dialogue, LineRowKind.dialogue, 'Rafayel', 'Hi.'));
 
     // Mauvais personnage dans la traduction : un nouveau.
     kind = await repo.updateLineWhileReading(hello.id, text: 'Coucou.', speaker: ' Zayne ');

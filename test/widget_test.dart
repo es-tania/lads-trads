@@ -333,7 +333,7 @@ void main() {
     await _settle(tester);
   }
 
-  testWidgets("L'éditeur modifie une réplique, sa note, puis en insère une après", (tester) async {
+  testWidgets("L'éditeur modifie une réplique, puis en insère une après", (tester) async {
     await start(tester);
     await openEditor(tester);
     expect(find.text('Ép. 1'), findsOneWidget);
@@ -347,12 +347,10 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Salut.'), 'Bonjour.');
     await tester.pump();
     expect(find.text('Avant : Salut.'), findsOneWidget);
-    await tester.enterText(find.widgetWithText(TextField, 'Visible seulement en admin'), 'à revoir');
-    await tester.pump();
     await tester.tap(find.text('Enregistrer'));
     await _settle(tester);
     expect(find.text('Bonjour.'), findsOneWidget);
-    expect(find.text('Note : à revoir'), findsOneWidget);
+    expect(find.text('Note de traduction'), findsNothing);
     expect(find.text('Enregistré'), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel('Insérer une réplique ici'));
@@ -465,9 +463,7 @@ void main() {
     await tester.pump();
     expect(find.text('Into The Canvas - EN-FR.docx'), findsOneWidget);
     expect(find.text('Pour relire : ce fichier ne se réimporte pas'), findsOneWidget);
-    await tester.tap(find.text('Anglais'));
-    await tester.pump();
-    expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged, isNull, reason: 'pas de notes en anglais');
+    expect(find.byType(SwitchListTile), findsNothing, reason: 'plus de notes de traduction à exporter');
   });
 
   testWidgets('Télécharger et Partager passent les .docx produits', (tester) async {

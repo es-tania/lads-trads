@@ -5,7 +5,8 @@ import 'package:sqflite/sqflite.dart';
 const defaultCharacters = ['Rafayel', 'Xavier', 'Zayne', 'Sylus', 'Caleb'];
 
 /// Version 2 : image et recadrage des personnages.
-/// Version 3 : note de traduction sur chaque ligne.
+/// Version 3 : note de traduction sur chaque ligne (colonne gardée, l'app
+/// ne s'en sert plus).
 /// Version 4 : cadrage des couvertures.
 const libraryDatabaseVersion = 4;
 

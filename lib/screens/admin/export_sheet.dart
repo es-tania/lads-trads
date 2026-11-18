@@ -65,7 +65,6 @@ class ExportSheet extends StatefulWidget {
 
 class _ExportSheetState extends State<ExportSheet> {
   var _language = ExportLanguage.fr;
-  var _notes = false;
   var _busy = false;
 
   /// Sans anglais importé, seul le français a du sens.
@@ -86,19 +85,11 @@ class _ExportSheetState extends State<ExportSheet> {
     });
   }
 
-  /// L'anglais n'a pas de notes : elles sont sur la traduction.
-  bool get _notesApply => _language != ExportLanguage.en;
-
   Future<void> _run({required bool share}) async {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final files = await exportStory(
-        context.library,
-        widget.story.id,
-        language: _language,
-        notes: _notes && _notesApply,
-      );
+      final files = await exportStory(context.library, widget.story.id, language: _language);
       if (share) {
         await widget.target.share(files, subject: widget.story.title);
       } else {
@@ -139,20 +130,6 @@ class _ExportSheetState extends State<ExportSheet> {
           ),
         ],
         const SizedBox(height: 20),
-        Opacity(
-          opacity: _notesApply ? 1 : 0.4,
-          child: SwitchListTile(
-            value: _notes && _notesApply,
-            onChanged: _notesApply ? (v) => setState(() => _notes = v) : null,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Inclure mes notes de traduction', style: TextStyle(fontSize: 15)),
-            subtitle: const Text(
-              'En commentaires Word, dans la marge',
-              style: InkText.hint,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: InkColors.bg, borderRadius: BorderRadius.circular(10)),

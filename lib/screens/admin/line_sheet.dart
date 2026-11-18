@@ -10,12 +10,11 @@ import '../../widgets/ink_labeled.dart';
 
 /// Contenu saisi dans le panneau d'une réplique.
 class LineDraft {
-  const LineDraft({required this.kind, required this.text, this.speaker, this.note});
+  const LineDraft({required this.kind, required this.text, this.speaker});
 
   final LineRowKind kind;
   final String text;
   final String? speaker;
-  final String? note;
 }
 
 /// Ce que la traductrice a demandé en fermant le panneau.
@@ -73,7 +72,6 @@ class _LineSheetState extends State<_LineSheet> {
   String? _speaker;
   late final List<String> _speakers;
   late final MarkupController _text;
-  late final TextEditingController _note;
 
   bool get _creating => widget.line == null;
 
@@ -87,7 +85,6 @@ class _LineSheetState extends State<_LineSheet> {
     _speakers = [...widget.speakers];
     if (_speaker != null && !_speakers.contains(_speaker)) _speakers.add(_speaker!);
     _text = MarkupController(markup: line?.text ?? initial?.text ?? '')..addListener(_refresh);
-    _note = TextEditingController(text: line?.note ?? initial?.note ?? '');
   }
 
   void _refresh() => setState(() {});
@@ -95,7 +92,6 @@ class _LineSheetState extends State<_LineSheet> {
   @override
   void dispose() {
     _text.dispose();
-    _note.dispose();
     super.dispose();
   }
 
@@ -103,7 +99,6 @@ class _LineSheetState extends State<_LineSheet> {
     kind: _kind,
     text: _text.markup,
     speaker: _kind == LineRowKind.narration ? null : _speaker,
-    note: _note.text,
   );
 
   bool get _valid => _text.text.trim().isNotEmpty && (_kind == LineRowKind.narration || _speaker != null);
@@ -258,16 +253,6 @@ class _LineSheetState extends State<_LineSheet> {
                 ),
               ],
             ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        InkLabeled(
-          gap: 8,
-          label: 'Note de traduction',
-          child: TextField(
-            controller: _note,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: inkSheetField(hint: 'Visible seulement en admin'),
           ),
         ),
         if (!_creating) ...[

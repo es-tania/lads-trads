@@ -261,7 +261,6 @@ class LineRow {
     this.speakerEn,
     this.parentId,
     this.paragraph,
-    this.note,
   });
 
   final int id;
@@ -279,7 +278,4 @@ class LineRow {
   /// Numéro du paragraphe dans le FR.docx d'origine (`null` pour une ligne
   /// ajoutée dans l'éditeur).
   final int? paragraph;
-
-  /// Note de traduction, visible seulement en mode admin.
-  final String? note;
 }
