@@ -230,7 +230,7 @@ class _MarkButton extends StatelessWidget {
         child: Opacity(
           opacity: enabled ? 1 : 0.4,
           child: Material(
-            color: active ? InkColors.raised : const Color(0x00000000),
+            color: active ? InkColors.raised : InkColors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(6),
               side: BorderSide(color: active ? InkColors.accent : InkColors.border),

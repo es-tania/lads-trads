@@ -35,8 +35,8 @@ class OverlayApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: InkTheme.dark.copyWith(scaffoldBackgroundColor: const Color(0x00000000)),
-      color: const Color(0x00000000),
+      theme: InkTheme.dark.copyWith(scaffoldBackgroundColor: InkColors.transparent),
+      color: InkColors.transparent,
       home: Material(type: MaterialType.transparency, child: OverlayScreen(host: host)),
     );
   }
@@ -422,7 +422,7 @@ class _Window extends StatelessWidget {
       decoration: BoxDecoration(
         color: InkColors.bg.withValues(alpha: opacity),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x1AEEF0F5)),
+        border: Border.all(color: InkColors.borderSoft),
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -510,7 +510,7 @@ class _NavButton extends StatelessWidget {
           color: primary ? InkColors.text : InkColors.raised,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
-            side: primary ? BorderSide.none : const BorderSide(color: Color(0x1AEEF0F5)),
+            side: primary ? BorderSide.none : const BorderSide(color: InkColors.borderSoft),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
@@ -778,7 +778,7 @@ class _EditView extends StatelessWidget {
         ),
         if (error != null) ...[
           const SizedBox(height: 4),
-          Text(error!, style: const TextStyle(fontSize: 12, color: Color(0xFFF28B82))),
+          Text(error!, style: const TextStyle(fontSize: 12, color: InkColors.error)),
         ],
         const SizedBox(height: 6),
         // Wrap : les deux boutons passent à la ligne si la fenêtre est étroite.
@@ -842,10 +842,10 @@ class _SpeakerChip extends StatelessWidget {
       // pas au nom affiché.
       excludeSemantics: semanticsLabel != null,
       child: Material(
-        color: selected ? InkColors.raised : const Color(0x00000000),
+        color: selected ? InkColors.raised : InkColors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: selected ? InkColors.accent : (dashed ? InkColors.borderStrong : const Color(0x1AEEF0F5))),
+          side: BorderSide(color: selected ? InkColors.accent : (dashed ? InkColors.borderStrong : InkColors.borderSoft)),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
@@ -930,7 +930,7 @@ class _ChoiceView extends StatelessWidget {
             color: InkColors.raised,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: picked == i ? InkColors.accent : const Color(0x1AEEF0F5)),
+              side: BorderSide(color: picked == i ? InkColors.accent : InkColors.borderSoft),
             ),
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
@@ -978,9 +978,9 @@ class _Bubble extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xEB0B0D14),
+            color: InkColors.overlayBg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0x1AEEF0F5)),
+            border: Border.all(color: InkColors.borderSoft),
           ),
           alignment: Alignment.center,
           child: Column(

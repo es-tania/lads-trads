@@ -438,7 +438,7 @@ class _LineTile extends StatelessWidget {
               ? BoxDecoration(
                   color: InkColors.raised,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0x80F2946B)),
+                  border: Border.all(color: InkColors.accentSoft),
                 )
               : null,
           child: Row(
@@ -658,7 +658,7 @@ class _Branch extends StatelessWidget {
                       ? BoxDecoration(
                           color: InkColors.raised,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0x80F2946B)),
+                          border: Border.all(color: InkColors.accentSoft),
                         )
                       : null,
                   child: _LineText(line: line, compact: true),
@@ -731,7 +731,7 @@ class _BottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF07080D),
+        color: InkColors.sunken,
         border: Border(top: BorderSide(color: InkColors.border)),
       ),
       child: SafeArea(

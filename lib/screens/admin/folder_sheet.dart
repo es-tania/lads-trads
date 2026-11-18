@@ -21,10 +21,10 @@ Future<void> showFolderSheet(
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: InkColors.surface,
-    barrierColor: const Color(0x99050610),
+    barrierColor: InkColors.barrier,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      side: BorderSide(color: Color(0x1AEEF0F5)),
+      side: BorderSide(color: InkColors.borderSoft),
     ),
     builder: (_) => _FolderSheet(
       characters: characters,
@@ -152,7 +152,7 @@ class _FolderSheetState extends State<_FolderSheet> {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: _danger),
+            style: TextButton.styleFrom(foregroundColor: InkColors.danger),
             child: const Text('Supprimer'),
           ),
         ],
@@ -191,7 +191,7 @@ class _FolderSheetState extends State<_FolderSheet> {
                 child: Container(
                   width: 36,
                   height: 4,
-                  decoration: BoxDecoration(color: const Color(0xFF2A2F3C), borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(color: InkColors.grabber, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -261,7 +261,7 @@ class _FolderSheetState extends State<_FolderSheet> {
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
-                Text(_error!, style: const TextStyle(fontSize: 13, color: Color(0xFFF28B82))),
+                Text(_error!, style: const TextStyle(fontSize: 13, color: InkColors.error)),
               ],
               const SizedBox(height: 20),
               _Labeled(
@@ -284,7 +284,7 @@ class _FolderSheetState extends State<_FolderSheet> {
                   child: TextButton.icon(
                     onPressed: _saving ? null : _delete,
                     style: TextButton.styleFrom(
-                      foregroundColor: _danger,
+                      foregroundColor: InkColors.danger,
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
                     ),
@@ -300,7 +300,7 @@ class _FolderSheetState extends State<_FolderSheet> {
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: const Color(0x00000000),
+                        backgroundColor: InkColors.transparent,
                         minimumSize: const Size(44, 48),
                         textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
                       ),
@@ -327,8 +327,6 @@ class _FolderSheetState extends State<_FolderSheet> {
     );
   }
 }
-
-const _danger = Color(0xFFE5484D);
 
 class _Labeled extends StatelessWidget {
   const _Labeled({required this.label, required this.child, this.gap = 4});

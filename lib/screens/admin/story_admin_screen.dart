@@ -15,8 +15,6 @@ import '../../widgets/ink_widgets.dart';
 import 'export_sheet.dart';
 import 'folder_choice.dart';
 
-const _danger = Color(0xFFE5484D);
-
 /// Ce que la fiche affiche, chargé d'un coup.
 typedef _StoryData = ({
   Story? story,
@@ -164,7 +162,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: _danger),
+            style: TextButton.styleFrom(foregroundColor: InkColors.danger),
             child: const Text('Supprimer'),
           ),
         ],
@@ -294,7 +292,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
                   TextButton(
                     onPressed: _saving ? null : _delete,
                     style: TextButton.styleFrom(
-                      foregroundColor: _danger,
+                      foregroundColor: InkColors.danger,
                       minimumSize: const Size(44, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),

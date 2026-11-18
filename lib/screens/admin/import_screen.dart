@@ -244,7 +244,7 @@ class _ImportScreenState extends State<ImportScreen> {
                       _filesGroup(),
                       if (_error != null) ...[
                         const SizedBox(height: 8),
-                        Text(_error!, style: const TextStyle(fontSize: 13, color: Color(0xFFF28B82))),
+                        Text(_error!, style: const TextStyle(fontSize: 13, color: InkColors.error)),
                       ],
                       const SizedBox(height: 24),
                       if (replacing)

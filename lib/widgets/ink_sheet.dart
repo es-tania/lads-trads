@@ -9,10 +9,10 @@ Future<T?> showInkSheet<T>(BuildContext context, {required WidgetBuilder builder
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: InkColors.surface,
-    barrierColor: const Color(0x99050610),
+    barrierColor: InkColors.barrier,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      side: BorderSide(color: Color(0x1AEEF0F5)),
+      side: BorderSide(color: InkColors.borderSoft),
     ),
     builder: (context) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -40,7 +40,7 @@ class InkSheetHeader extends StatelessWidget {
           child: Container(
             width: 36,
             height: 4,
-            decoration: BoxDecoration(color: const Color(0xFF2A2F3C), borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(color: InkColors.grabber, borderRadius: BorderRadius.circular(2)),
           ),
         ),
         const SizedBox(height: 12),
@@ -101,7 +101,7 @@ class InkSheetActions extends StatelessWidget {
           child: OutlinedButton(
             onPressed: () => Navigator.pop(context),
             style: OutlinedButton.styleFrom(
-              backgroundColor: const Color(0x00000000),
+              backgroundColor: InkColors.transparent,
               minimumSize: const Size(44, 48),
               textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
             ),

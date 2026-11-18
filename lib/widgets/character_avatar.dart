@@ -78,7 +78,7 @@ class _Initial extends StatelessWidget {
     );
     if (dashed) {
       return CustomPaint(
-        painter: DashedOutlinePainter(color: const Color(0x33EEF0F5), radius: size / 2),
+        painter: DashedOutlinePainter(color: InkColors.borderDashed, radius: size / 2),
         child: Center(child: text),
       );
     }

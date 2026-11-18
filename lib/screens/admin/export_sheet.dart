@@ -179,7 +179,7 @@ class _ExportSheetState extends State<ExportSheet> {
               child: OutlinedButton.icon(
                 onPressed: _busy ? null : () => _run(share: true),
                 style: OutlinedButton.styleFrom(
-                  backgroundColor: const Color(0x00000000),
+                  backgroundColor: InkColors.transparent,
                   minimumSize: const Size(44, 48),
                   textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
                 ),

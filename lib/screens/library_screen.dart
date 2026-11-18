@@ -190,7 +190,7 @@ class _CharacterBubble extends StatelessWidget {
                           BoxShadow(color: InkColors.text, spreadRadius: 4),
                           BoxShadow(color: InkColors.bg, spreadRadius: 2),
                         ]
-                      : const [BoxShadow(color: Color(0x1AEEF0F5), spreadRadius: 1)],
+                      : const [BoxShadow(color: InkColors.borderSoft, spreadRadius: 1)],
                 ),
                 child: ExcludeSemantics(child: CharacterAvatar.of(character, size: 48)),
               ),

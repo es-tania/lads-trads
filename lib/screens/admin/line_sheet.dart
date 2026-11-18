@@ -7,8 +7,6 @@ import '../../widgets/ink_segmented.dart';
 import '../../widgets/ink_sheet.dart';
 import '../../widgets/markup_field.dart';
 
-const _danger = Color(0xFFE5484D);
-
 /// Contenu saisi dans le panneau d'une réplique.
 class LineDraft {
   const LineDraft({required this.kind, required this.text, this.speaker, this.note});
@@ -157,7 +155,7 @@ class _LineSheetState extends State<_LineSheet> {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: _danger),
+            style: TextButton.styleFrom(foregroundColor: InkColors.danger),
             child: const Text('Supprimer'),
           ),
         ],
@@ -247,7 +245,7 @@ class _LineSheetState extends State<_LineSheet> {
                           fontFamily: InkFonts.display,
                           fontSize: 15,
                           decoration: TextDecoration.lineThrough,
-                          decorationColor: Color(0x4DEEF0F5),
+                          decorationColor: InkColors.strike,
                         ),
                       ),
                     ],
@@ -293,10 +291,10 @@ class _LineSheetState extends State<_LineSheet> {
                   onPressed: _delete,
                   style: IconButton.styleFrom(
                     minimumSize: const Size(40, 40),
-                    foregroundColor: _danger,
+                    foregroundColor: InkColors.danger,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0x4DE5484D)),
+                      side: const BorderSide(color: InkColors.dangerBorder),
                     ),
                   ),
                   icon: const Icon(Icons.delete_outline_rounded, size: 16),
@@ -407,7 +405,7 @@ class _SmallButton extends StatelessWidget {
     return OutlinedButton(
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
-        backgroundColor: const Color(0x00000000),
+        backgroundColor: InkColors.transparent,
         minimumSize: const Size(44, 40),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -601,7 +599,7 @@ class _OptionSheetState extends State<_OptionSheet> {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: _danger),
+            style: TextButton.styleFrom(foregroundColor: InkColors.danger),
             child: const Text('Supprimer'),
           ),
         ],
@@ -635,7 +633,7 @@ class _OptionSheetState extends State<_OptionSheet> {
             child: TextButton.icon(
               onPressed: _delete,
               style: TextButton.styleFrom(
-                foregroundColor: _danger,
+                foregroundColor: InkColors.danger,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
               ),

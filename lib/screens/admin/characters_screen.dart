@@ -73,7 +73,7 @@ class _CharacterRow extends StatelessWidget {
       leading: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          boxShadow: hasImage ? const [BoxShadow(color: Color(0x1AEEF0F5), spreadRadius: 1)] : null,
+          boxShadow: hasImage ? const [BoxShadow(color: InkColors.borderSoft, spreadRadius: 1)] : null,
         ),
         child: CharacterAvatar.of(character, size: 44, dashed: true),
       ),
@@ -200,11 +200,11 @@ Future<void> showCharacterImageSheet(BuildContext context, Character character) 
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: InkColors.surface,
-    barrierColor: const Color(0x99050610),
+    barrierColor: InkColors.barrier,
     showDragHandle: false,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      side: BorderSide(color: Color(0x1AEEF0F5)),
+      side: BorderSide(color: InkColors.borderSoft),
     ),
     builder: (_) => _ImageSheet(character: character),
   );
@@ -335,7 +335,7 @@ class _ImageSheetState extends State<_ImageSheet> {
                     child: DecoratedBox(
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Color(0x1AEEF0F5), spreadRadius: 1)],
+                        boxShadow: [BoxShadow(color: InkColors.borderSoft, spreadRadius: 1)],
                       ),
                       child: CharacterAvatar(size: 48, initial: widget.character.initial, image: image, crop: _crop),
                     ),

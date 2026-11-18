@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 import '../data/library_repository.dart';
@@ -126,9 +125,9 @@ class OverlayLauncher {
         dismissConfig: const OverlayDismissConfig(
           size: 56,
           bottomMargin: 48,
-          backgroundColor: Color(0xEB0B0D14),
+          backgroundColor: InkColors.overlayBg,
           iconColor: InkColors.text,
-          borderColor: Color(0x29EEF0F5),
+          borderColor: InkColors.borderStrong,
           borderWidth: 1,
           activeBackgroundColor: InkColors.accent,
           activeIconColor: InkColors.bg,

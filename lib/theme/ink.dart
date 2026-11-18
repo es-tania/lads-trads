@@ -8,9 +8,31 @@ abstract final class InkColors {
   static const surface = Color(0xFF11141C);
   static const raised = Color(0xFF1A1E28);
 
+  /// Barre du bas de l'éditeur, plus sombre que le fond.
+  static const sunken = Color(0xFF07080D);
+
+  /// Fond de la fenêtre flottante et de sa bulle (fond à 92 %).
+  static const overlayBg = Color(0xEB0B0D14);
+
+  /// Assombrit l'écran derrière un panneau du bas.
+  static const barrier = Color(0x99050610);
+
+  /// Assombrit l'image autour du cadre de recadrage (fond à 62 %).
+  static const cropShade = Color(0x9E0B0D14);
+
+  static const transparent = Color(0x00000000);
+
   // Bordures fines.
   static const border = Color(0x14EEF0F5); // rgba(238,240,245,0.08)
+  static const borderSoft = Color(0x1AEEF0F5); // 0.10, panneaux, fenêtre flottante, contour des images
   static const borderStrong = Color(0x29EEF0F5); // 0.16, puces actives et pointillés
+  static const borderDashed = Color(0x33EEF0F5); // 0.20, cercle vide d'un personnage
+
+  /// Poignée en haut des panneaux.
+  static const grabber = Color(0xFF2A2F3C);
+
+  /// Trait sur le texte barré d'une réplique supprimée.
+  static const strike = Color(0x4DEEF0F5);
 
   // Textes.
   static const text = Color(0xFFEEF0F5);
@@ -19,6 +41,16 @@ abstract final class InkColors {
 
   // Accent corail.
   static const accent = Color(0xFFF2946B);
+
+  /// Contour de la réplique choisie dans l'éditeur (accent à 50 %).
+  static const accentSoft = Color(0x80F2946B);
+
+  /// Messages d'erreur.
+  static const error = Color(0xFFF28B82);
+
+  /// Actions qui suppriment.
+  static const danger = Color(0xFFE5484D);
+  static const dangerBorder = Color(0x4DE5484D);
 
   // Personnages.
   static const rafayel = Color(0xFFF2A0B8);
@@ -119,7 +151,7 @@ abstract final class InkTheme {
       onSurfaceVariant: InkColors.textMuted,
       outline: InkColors.borderStrong,
       outlineVariant: InkColors.border,
-      error: Color(0xFFF28B82),
+      error: InkColors.error,
     );
 
     final base = ThemeData(

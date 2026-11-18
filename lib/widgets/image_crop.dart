@@ -187,7 +187,7 @@ class _EditorPainter extends CustomPainter {
       Paint()..filterQuality = FilterQuality.medium,
     );
     final frame = crop.frameIn(size, aspect: aspect);
-    final shade = Paint()..color = const Color(0x9E0B0D14);
+    final shade = Paint()..color = InkColors.cropShade;
     final stroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
