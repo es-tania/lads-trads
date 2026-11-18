@@ -144,12 +144,12 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
         await library.setCoverCrop(id, _coverCrop!);
       }
       if (!mounted) return;
-      showStepSnack(context, 'Fiche enregistrée.');
+      showInkSnack(context, 'Fiche enregistrée.');
       Navigator.pop(context);
     } on Object catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      showStepSnack(context, 'Enregistrement impossible : $e');
+      showInkSnack(context, 'Enregistrement impossible : $e');
     }
   }
 

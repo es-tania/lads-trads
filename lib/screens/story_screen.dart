@@ -40,7 +40,7 @@ class StoryScreen extends StatelessWidget {
     }
     if (!context.mounted) return;
     if (!granted) {
-      showStepSnack(context, 'Sans cette autorisation, la traduction ne peut pas s\'afficher sur le jeu.');
+      showInkSnack(context, 'Sans cette autorisation, la traduction ne peut pas s\'afficher sur le jeu.');
       return;
     }
     await launcher.launch(
@@ -51,7 +51,7 @@ class StoryScreen extends StatelessWidget {
       pixelRatio: MediaQuery.devicePixelRatioOf(context),
       admin: adminMode.value,
     );
-    if (context.mounted) showStepSnack(context, '${part.displayTitle} est prête : passe sur le jeu.');
+    if (context.mounted) showInkSnack(context, '${part.displayTitle} est prête : passe sur le jeu.');
   }
 
   @override

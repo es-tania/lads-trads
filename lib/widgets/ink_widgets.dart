@@ -195,7 +195,8 @@ class InkBottomAction extends StatelessWidget {
   }
 }
 
-void showStepSnack(BuildContext context, String text) {
+/// Message bref en bas de l'écran ; remplace le précédent s'il est encore affiché.
+void showInkSnack(BuildContext context, String text) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(text)));

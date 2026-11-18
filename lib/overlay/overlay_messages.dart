@@ -5,7 +5,8 @@ import 'playback.dart';
 /// App → fenêtre : [loadMessage] (une histoire à afficher), [settingsMessage].
 /// Fenêtre → app : [readyMessage], envoyé au démarrage de la fenêtre pour
 /// recevoir l'histoire si elle est arrivée trop tôt ; [editedMessage], après
-/// une modification enregistrée pendant la lecture.
+/// une modification enregistrée pendant la lecture ; [renamedMessage], après
+/// un personnage renommé dans toute l'histoire.
 abstract final class OverlayMessages {
   static const ready = 'ready';
   static const load = 'load';

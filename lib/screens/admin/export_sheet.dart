@@ -114,7 +114,7 @@ class _ExportSheetState extends State<ExportSheet> {
         }
       }
     } on Object catch (e) {
-      if (mounted) showStepSnack(context, 'Export impossible : $e');
+      if (mounted) showInkSnack(context, 'Export impossible : $e');
     }
     if (mounted) setState(() => _busy = false);
   }

@@ -221,12 +221,6 @@ class Playback {
     }
   }
 
-  /// Va au début d'une partie.
-  void jumpToPart(int part) {
-    _part = part.clamp(0, parts.length - 1);
-    _index = 0;
-  }
-
   /// Numéro de la réplique affichée et nombre de répliques de la partie
   /// (« L.012/022 »). Un choix sans réponse compte sa première option.
   (int, int) get counter {

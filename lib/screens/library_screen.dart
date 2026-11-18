@@ -24,7 +24,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void _toggleAdmin() {
     HapticFeedback.mediumImpact();
     adminMode.value = !adminMode.value;
-    showStepSnack(context, adminMode.value ? 'Mode admin activé' : 'Mode admin désactivé');
+    showInkSnack(context, adminMode.value ? 'Mode admin activé' : 'Mode admin désactivé');
   }
 
   @override

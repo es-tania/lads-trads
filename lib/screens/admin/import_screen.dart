@@ -165,12 +165,12 @@ class _ImportScreenState extends State<ImportScreen> {
         coverCrop: _cover == null ? null : _coverCrop,
       );
       if (!mounted) return;
-      showStepSnack(context, 'Histoire importée.');
+      showInkSnack(context, 'Histoire importée.');
       await Navigator.pushReplacementNamed(context, Routes.story, arguments: storyId);
     } on Object catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        showStepSnack(context, 'Import impossible : $e');
+        showInkSnack(context, 'Import impossible : $e');
       }
     }
   }
@@ -182,12 +182,12 @@ class _ImportScreenState extends State<ImportScreen> {
     try {
       await context.library.replaceStoryContent(widget.replaceStoryId!, parsed);
       if (!mounted) return;
-      showStepSnack(context, 'Contenu remplacé.');
+      showInkSnack(context, 'Contenu remplacé.');
       Navigator.pop(context);
     } on Object catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        showStepSnack(context, 'Remplacement impossible : $e');
+        showInkSnack(context, 'Remplacement impossible : $e');
       }
     }
   }

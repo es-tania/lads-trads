@@ -91,7 +91,7 @@ class _AddCharacterButton extends StatelessWidget {
 
   Future<void> _add(BuildContext context) async {
     final name = await showDialog<String>(context: context, builder: (_) => const _AddCharacterDialog());
-    if (name != null && context.mounted) showStepSnack(context, '$name ajouté.');
+    if (name != null && context.mounted) showInkSnack(context, '$name ajouté.');
   }
 
   @override
@@ -266,7 +266,7 @@ class _ImageSheetState extends State<_ImageSheet> {
     } on Object catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      showStepSnack(context, 'Enregistrement impossible : $e');
+      showInkSnack(context, 'Enregistrement impossible : $e');
     }
   }
 
