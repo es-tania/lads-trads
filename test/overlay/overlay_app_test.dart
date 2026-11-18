@@ -31,7 +31,7 @@ class FakeHost implements OverlayHost {
   }
 
   /// Clavier demandé (vrai) puis rendu au jeu (faux).
-  final keyboard = <bool>[];
+  final keyboardRequests = <bool>[];
   final saved = <(int, String, String?)>[];
   Object? saveError;
 
@@ -39,7 +39,7 @@ class FakeHost implements OverlayHost {
   var saveHangs = false;
 
   @override
-  Future<void> setKeyboard(bool enabled) async => keyboard.add(enabled);
+  Future<void> setKeyboard(bool enabled) async => keyboardRequests.add(enabled);
 
   @override
   Future<String> saveLine(int lineId, {required String text, required String? speaker}) async {
@@ -87,6 +87,19 @@ class FakeHost implements OverlayHost {
 
   @override
   Future<({double width, double height})?> screenSize() async => (width: 390.0, height: 844.0);
+
+  /// Clavier simulé : recouvre [keyboardOverlap] points de la fenêtre tant
+  /// qu'elle n'est pas montée au-dessus de [keyboardTop].
+  bool keyboardVisible = false;
+  double? keyboardTop;
+
+  @override
+  Future<({bool? visible, double overlap})> keyboard() async {
+    final top = keyboardTop;
+    if (!keyboardVisible || top == null) return (visible: keyboardVisible, overlap: 0.0);
+    final bottom = at.dy + (resizes.isEmpty ? 0 : resizes.last.$2);
+    return (visible: true, overlap: (bottom - top).clamp(0.0, double.infinity));
+  }
 }
 
 PlayItem line(String text, [String? speaker, int? id]) =>
@@ -264,7 +277,7 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
     await tester.pumpAndSettle();
-    expect(host.keyboard, [true], reason: 'la fenêtre reçoit le clavier');
+    expect(host.keyboardRequests, [true], reason: 'la fenêtre reçoit le clavier');
     expect(find.text('Modifier · Rafayel'), findsOneWidget);
     expect(tester.widget<EditableText>(find.byType(EditableText)).controller.text, 'Les couleurs sont prêtes.');
     expect(find.bySemanticsLabel('Réplique suivante'), findsOneWidget);
@@ -280,9 +293,65 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(host.saved, [(10, 'Les couleurs sont prêtes, vas-y.', 'Rafayel')]);
-    expect(host.keyboard, [true, false], reason: 'le clavier est rendu au jeu');
+    expect(host.keyboardRequests, [true, false], reason: 'le clavier est rendu au jeu');
     expect(find.text('Les couleurs sont prêtes, vas-y.'), findsOneWidget);
     expect(find.text('Kindled · L.001/003'), findsOneWidget, reason: 'même position de lecture');
+  });
+
+  testWidgets('pendant une modification, la fenêtre monte au-dessus du clavier puis revient', (tester) async {
+    await start(tester);
+    host.controller.add(load(admin: true));
+    await tester.pumpAndSettle();
+    await host.move(8, 600);
+    host.moves.clear();
+
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    final height = host.resizes.last.$2;
+    host
+      ..keyboardVisible = true
+      ..keyboardTop = 500;
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(host.at, Offset(8, 500 - height - 8.0), reason: 'juste au-dessus du clavier');
+
+    // Le clavier se ferme (bouton retour) : la fenêtre revient à sa place.
+    host.keyboardVisible = false;
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(host.at, const Offset(8, 600));
+
+    // Il se rouvre, puis on enregistre : la fenêtre revient aussi.
+    host.keyboardVisible = true;
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(host.at.dy, lessThan(600));
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(host.at, const Offset(8, 600));
+
+    // Hors modification, le clavier n'est plus suivi.
+    host.moves.clear();
+    await tester.pump(const Duration(seconds: 1));
+    expect(host.moves, isEmpty);
+  });
+
+  testWidgets('une fenêtre déjà au-dessus du clavier ne bouge pas', (tester) async {
+    await start(tester);
+    host.controller.add(load(admin: true));
+    await tester.pumpAndSettle();
+    await host.move(8, 40);
+    host.moves.clear();
+
+    await tester.tap(find.bySemanticsLabel('Modifier la réplique'));
+    await tester.pumpAndSettle();
+    host
+      ..keyboardVisible = true
+      ..keyboardTop = 500;
+    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.text('Annuler'));
+    await tester.pumpAndSettle();
+    expect(host.moves, isEmpty);
   });
 
   testWidgets('Annuler ne change rien ; une erreur reste affichée', (tester) async {
@@ -296,7 +365,7 @@ void main() {
     await tester.tap(find.text('Annuler'));
     await tester.pumpAndSettle();
     expect(host.saved, isEmpty);
-    expect(host.keyboard, [true, false]);
+    expect(host.keyboardRequests, [true, false]);
     expect(find.text('Les couleurs sont prêtes.'), findsOneWidget);
 
     host.saveError = StateError('base indisponible');

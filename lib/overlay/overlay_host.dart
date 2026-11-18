@@ -31,6 +31,10 @@ abstract class OverlayHost {
   /// le rend au jeu.
   Future<void> setKeyboard(bool enabled);
 
+  /// État du clavier : [overlap], hauteur de la fenêtre qu'il recouvre (en
+  /// points) ; [visible], `null` si le système ne le dit pas.
+  Future<({bool? visible, double overlap})> keyboard();
+
   /// Enregistre le texte et le personnage d'une ligne dans la base du
   /// téléphone ([speaker] `null` : narration). Renvoie le type obtenu
   /// (« dialogue », « thought » ou « narration »).
@@ -90,6 +94,12 @@ class PluginOverlayHost implements OverlayHost {
   @override
   Future<void> setKeyboard(bool enabled) =>
       FlutterOverlayWindow.updateFlag(enabled ? OverlayFlag.focusPointer : OverlayFlag.defaultFlag);
+
+  @override
+  Future<({bool? visible, double overlap})> keyboard() async {
+    final state = await FlutterOverlayWindow.getKeyboard();
+    return (visible: state?['visible'] as bool?, overlap: (state?['overlap'] as num?)?.toDouble() ?? 0);
+  }
 
   LibraryRepository? _library;
 

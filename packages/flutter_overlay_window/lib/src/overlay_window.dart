@@ -186,6 +186,13 @@ class FlutterOverlayWindow {
     );
   }
 
+  /// LADS Trad : état du clavier vu depuis la fenêtre. `overlap` : hauteur
+  /// de la fenêtre recouverte par le clavier, en dp (num). `visible` : bool,
+  /// ou `null` si le système ne le dit pas (avant Android 11).
+  static Future<Map<String, Object?>?> getKeyboard() {
+    return _overlayChannel.invokeMapMethod<String, Object?>('getKeyboard');
+  }
+
   static Future<bool?> clearDragHandle() {
     return _overlayChannel.invokeMethod<bool?>('setDragHandle', <String, Object?>{});
   }

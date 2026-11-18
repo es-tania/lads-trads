@@ -10,3 +10,8 @@ Copie de [flutter_overlay_window](https://pub.dev/packages/flutter_overlay_windo
   bord : seule la bulle peut être fermée en la glissant sur le ×.
 - Fichiers touchés : `OverlayService.java` (`onTouch`, `isInDragHandle`, méthode
   `setDragHandle`) et `lib/src/overlay_window.dart`.
+- **État du clavier** : `FlutterOverlayWindow.getKeyboard()` dit si le clavier est visible
+  et de combien il recouvre la fenêtre (en dp), d'après les `WindowInsets` de la vue.
+  La fenêtre s'en sert pour monter au-dessus du clavier pendant une modification.
+  Fichiers touchés : `OverlayService.java` (`keyboardState`, méthode `getKeyboard`) et
+  `lib/src/overlay_window.dart`.

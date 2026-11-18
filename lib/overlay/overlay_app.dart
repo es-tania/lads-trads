@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import '../theme/ink.dart';
 import '../widgets/markup_field.dart';
 import '../widgets/size_reporter.dart';
+import 'keyboard_avoider.dart';
 import 'overlay_host.dart';
 import 'overlay_messages.dart';
 import 'playback.dart';
@@ -95,12 +96,14 @@ class _OverlayScreenState extends State<OverlayScreen> {
   var _savingEdit = false;
 
   OverlayHost get host => widget.host;
+  late final KeyboardAvoider _keyboard;
   int get _windowWidth => (_screenWidth - 2 * _margin).round();
 
   @override
   void initState() {
     super.initState();
     _sub = host.messages.listen(_onMessage);
+    _keyboard = KeyboardAvoider(host);
     unawaited(_init());
   }
 
@@ -136,6 +139,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
   @override
   void dispose() {
     _sub?.cancel();
+    unawaited(_keyboard.stop());
     _editText.dispose();
     _newSpeaker?.dispose();
     super.dispose();
@@ -215,8 +219,10 @@ class _OverlayScreenState extends State<OverlayScreen> {
       _speakersOpen = false;
       _closeNewSpeaker();
     });
-    // Le temps de la modification, la fenêtre reçoit le clavier.
+    // Le temps de la modification, la fenêtre reçoit le clavier et reste
+    // au-dessus de lui.
     await host.setKeyboard(true);
+    _keyboard.start();
   }
 
   Future<void> _stopEditing() async {
@@ -225,6 +231,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
       _savingEdit = false;
       _closeNewSpeaker();
     });
+    await _keyboard.stop();
     await host.setKeyboard(false);
   }
 

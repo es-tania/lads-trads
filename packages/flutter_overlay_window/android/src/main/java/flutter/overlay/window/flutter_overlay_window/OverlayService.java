@@ -183,6 +183,9 @@ public class OverlayService extends Service implements View.OnTouchListener {
                     }
                     result.success(true);
                     break;
+                case "getKeyboard":
+                    result.success(keyboardState());
+                    break;
                 case "resizeOverlay":
                     int width = call.argument("width");
                     int height = call.argument("height");
@@ -238,6 +241,29 @@ public class OverlayService extends Service implements View.OnTouchListener {
         isOverlayWindowVisible = true;
         moveOverlay(dx, dy, null);
         return START_STICKY;
+    }
+
+    // LADS Trad : état du clavier vu par la fenêtre. « overlap » : hauteur de
+    // la fenêtre recouverte par le clavier, en dp. « visible » : null si le
+    // système ne le dit pas (avant Android 11).
+    private Map<String, Object> keyboardState() {
+        Map<String, Object> state = new HashMap<>();
+        Boolean visible = null;
+        double overlap = 0;
+        if (flutterView != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            android.view.WindowInsets insets = flutterView.getRootWindowInsets();
+            if (insets != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    visible = insets.isVisible(android.view.WindowInsets.Type.ime());
+                    overlap = pxToDp(insets.getInsets(android.view.WindowInsets.Type.ime()).bottom);
+                } else {
+                    overlap = pxToDp(insets.getSystemWindowInsetBottom());
+                }
+            }
+        }
+        state.put("visible", visible);
+        state.put("overlap", overlap);
+        return state;
     }
 
 
