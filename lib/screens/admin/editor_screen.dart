@@ -8,6 +8,7 @@ import '../../theme/ink.dart';
 import '../../widgets/markup_field.dart';
 import 'line_sheet.dart';
 import '../../text/line_labels.dart';
+import '../../widgets/one_line_label.dart';
 
 /// Ce que l'éditeur affiche pour une partie.
 typedef _EditorData = ({Story? story, List<Part> parts, List<LineRow> lines, List<String> speakers});
@@ -733,7 +734,7 @@ class _BottomBar extends StatelessWidget {
                 onPressed: onImport,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(44, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: InkSpacing.compactButton,
                   textStyle: InkText.button,
                 ),
                 icon: const Icon(Icons.upload_outlined, size: 18, color: InkColors.textMuted),
@@ -743,8 +744,9 @@ class _BottomBar extends StatelessWidget {
               Expanded(
                 child: FilledButton.icon(
                   onPressed: onAdd,
+                  style: FilledButton.styleFrom(padding: InkSpacing.compactButton),
                   icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Ajouter une réplique'),
+                  label: const OneLineLabel('Ajouter une réplique'),
                 ),
               ),
             ],

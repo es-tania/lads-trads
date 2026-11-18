@@ -71,6 +71,13 @@ abstract final class InkFonts {
   static const mono = 'JetBrainsMono';
 }
 
+/// Espacements récurrents.
+abstract final class InkSpacing {
+  /// Marges d'un bouton serré contre un autre, pour que son texte tienne
+  /// sur une ligne (le thème en met 24 de chaque côté).
+  static const compactButton = EdgeInsets.symmetric(horizontal: 12);
+}
+
 /// Styles de texte récurrents de la maquette.
 abstract final class InkText {
   /// Libellé d'un champ, légende.

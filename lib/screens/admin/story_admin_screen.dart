@@ -15,6 +15,7 @@ import '../../widgets/ink_widgets.dart';
 import 'export_sheet.dart';
 import 'folder_choice.dart';
 import '../../widgets/ink_labeled.dart';
+import '../../widgets/one_line_label.dart';
 
 /// Ce que la fiche affiche, chargé d'un coup.
 typedef _StoryData = ({
@@ -347,9 +348,9 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _saving ? null : _pickCover,
-                style: OutlinedButton.styleFrom(minimumSize: const Size(44, 40)),
+                style: OutlinedButton.styleFrom(minimumSize: const Size(44, 40), padding: InkSpacing.compactButton),
                 icon: const Icon(Icons.image_outlined, size: 16, color: InkColors.textMuted),
-                label: Text(hasCover ? "Changer l'image" : 'Choisir une image'),
+                label: OneLineLabel(hasCover ? "Changer l'image" : 'Choisir une image'),
               ),
               if (hasCover) ...[
                 const SizedBox(height: 8),

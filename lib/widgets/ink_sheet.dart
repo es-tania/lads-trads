@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/ink.dart';
+import 'one_line_label.dart';
 
 /// Panneau du bas aux couleurs « ink », qui suit le clavier.
 ///
@@ -123,15 +124,20 @@ class InkSheetActions extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               backgroundColor: InkColors.transparent,
               minimumSize: const Size(44, 48),
+              padding: InkSpacing.compactButton,
               textStyle: InkText.button,
             ),
-            child: const Text('Annuler'),
+            child: const OneLineLabel('Annuler'),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           flex: 2,
-          child: FilledButton(onPressed: onPressed, child: Text(label)),
+          child: FilledButton(
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(padding: InkSpacing.compactButton),
+            child: OneLineLabel(label),
+          ),
         ),
       ],
     );

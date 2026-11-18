@@ -11,6 +11,7 @@ import '../../widgets/character_avatar.dart';
 import '../../widgets/image_crop.dart';
 import '../../widgets/ink_sheet.dart';
 import '../../widgets/ink_widgets.dart';
+import '../../widgets/one_line_label.dart';
 
 /// Écran admin : image et recadrage de chaque personnage, ajout d'un personnage.
 class CharactersScreen extends StatelessWidget {
@@ -330,14 +331,19 @@ class _ImageSheetState extends State<_ImageSheet> {
                 style: OutlinedButton.styleFrom(
                   backgroundColor: InkColors.raised,
                   minimumSize: const Size(44, 48),
+                  padding: InkSpacing.compactButton,
                   textStyle: InkText.button,
                 ),
-                child: const Text('Choisir une image'),
+                child: const OneLineLabel('Choisir une image'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: FilledButton(onPressed: image == null || _saving ? null : _save, child: const Text('Enregistrer')),
+              child: FilledButton(
+                onPressed: image == null || _saving ? null : _save,
+                style: FilledButton.styleFrom(padding: InkSpacing.compactButton),
+                child: const OneLineLabel('Enregistrer'),
+              ),
             ),
           ],
         ),

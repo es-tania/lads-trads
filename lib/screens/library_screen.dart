@@ -199,6 +199,9 @@ class _CharacterBubble extends StatelessWidget {
                 character.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                // L'onglet a une hauteur fixe : un texte très agrandi dans les
+                // réglages du téléphone ne grandit plus au-delà de 115 %.
+                textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.15),
                 style: TextStyle(
                   fontSize: 12,
                   height: 16 / 12,
