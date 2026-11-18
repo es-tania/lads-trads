@@ -104,10 +104,9 @@ class ImportFileRow extends StatelessWidget {
 
 /// Section « À vérifier » : avertissements du parseur.
 class ImportChecks extends StatelessWidget {
-  const ImportChecks({super.key, required this.parsed, required this.withEnglish});
+  const ImportChecks({super.key, required this.parsed});
 
   final ParsedStory parsed;
-  final bool withEnglish;
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +116,7 @@ class ImportChecks extends StatelessWidget {
       children: [
         InkSectionLabel(warnings.isEmpty ? 'À vérifier' : 'À vérifier · ${warnings.length}'),
         if (warnings.isEmpty)
-          InkComingSoon(text: withEnglish ? 'Rien à signaler : FR et EN sont alignés.' : 'Rien à signaler.')
+          const InkComingSoon(text: 'Rien à signaler.')
         else
           InkGroup(
             children: [

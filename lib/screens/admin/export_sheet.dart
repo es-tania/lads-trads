@@ -64,32 +64,13 @@ class ExportSheet extends StatefulWidget {
 }
 
 class _ExportSheetState extends State<ExportSheet> {
-  var _language = ExportLanguage.fr;
   var _busy = false;
-
-  /// Sans anglais importé, seul le français a du sens.
-  var _hasEnglish = true;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final has = await context.library.hasEnglish(widget.story.id);
-      if (mounted && !has) {
-        setState(() {
-          _hasEnglish = false;
-          _language = ExportLanguage.fr;
-        });
-      }
-    });
-  }
 
   Future<void> _run({required bool share}) async {
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final files = await exportStory(context.library, widget.story.id, language: _language);
+      final files = [await exportStory(context.library, widget.story.id)];
       if (share) {
         await widget.target.share(files, subject: widget.story.title);
       } else {
@@ -97,9 +78,7 @@ class _ExportSheetState extends State<ExportSheet> {
         if (saved > 0) {
           messenger
             ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(content: Text(saved == 1 ? 'Fichier enregistré.' : '$saved fichiers enregistrés.')),
-            );
+            ..showSnackBar(const SnackBar(content: Text('Fichier enregistré.')));
           if (mounted) Navigator.pop(context);
           return;
         }
@@ -112,23 +91,11 @@ class _ExportSheetState extends State<ExportSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final names = exportFileNames(widget.story.title, _language);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         InkSheetHeader(eyebrow: widget.story.title, title: 'Exporter en .docx'),
-        const SizedBox(height: 20),
-        const Text('Langue', style: InkText.label),
-        const SizedBox(height: 8),
-        _LanguageList(value: _language, englishAvailable: _hasEnglish, onChanged: (l) => setState(() => _language = l)),
-        if (!_hasEnglish) ...[
-          const SizedBox(height: 8),
-          const Text(
-            "Histoire importée sans anglais : seul le français s'exporte.",
-            style: InkText.hint,
-          ),
-        ],
         const SizedBox(height: 20),
         Container(
           padding: const EdgeInsets.all(12),
@@ -136,16 +103,9 @@ class _ExportSheetState extends State<ExportSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final name in names) ...[
-                Text(name, style: InkText.count.copyWith(color: InkColors.text)),
-                const SizedBox(height: 4),
-              ],
-              Text(
-                _language == ExportLanguage.bilingual
-                    ? 'Pour relire : ce fichier ne se réimporte pas'
-                    : "Même mise en forme que tes fichiers d'origine, donc réimportable",
-                style: InkText.hint,
-              ),
+              Text(exportFileName(widget.story.title), style: InkText.count.copyWith(color: InkColors.text)),
+              const SizedBox(height: 4),
+              const Text("Même mise en forme que tes fichiers d'origine, donc réimportable", style: InkText.hint),
             ],
           ),
         ),
@@ -178,91 +138,3 @@ class _ExportSheetState extends State<ExportSheet> {
   }
 }
 
-/// Boutons radio des langues, avec une explication sous chacune.
-class _LanguageList extends StatelessWidget {
-  const _LanguageList({required this.value, required this.onChanged, required this.englishAvailable});
-
-  final bool englishAvailable;
-
-  final ExportLanguage value;
-  final ValueChanged<ExportLanguage> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: InkColors.bg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: InkColors.border),
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: Column(
-          children: [
-            for (final (i, language) in ExportLanguage.values.indexed) ...[
-              if (i > 0) const SizedBox(height: 2),
-              _option(language, language == value, enabled: englishAvailable || language == ExportLanguage.fr),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _option(ExportLanguage language, bool selected, {required bool enabled}) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.4,
-      child: Semantics(
-        enabled: enabled,
-        selected: selected,
-        inMutuallyExclusiveGroup: true,
-        button: true,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: enabled ? () => onChanged(language) : null,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            constraints: const BoxConstraints(minHeight: 52),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: selected ? InkColors.raised : null,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 16,
-                  height: 16,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: selected ? InkColors.accent : InkColors.textFaint, width: 1.5),
-                  ),
-                  child: selected
-                      ? Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(color: InkColors.accent, shape: BoxShape.circle),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(language.label, style: const TextStyle(fontSize: 15, color: InkColors.text)),
-                      const SizedBox(height: 2),
-                      Text(language.hint, style: InkText.hint),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

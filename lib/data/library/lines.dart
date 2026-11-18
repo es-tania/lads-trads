@@ -36,8 +36,7 @@ mixin _Lines on _LibraryBase {
 
   /// Modifie une réplique, une pensée ou une narration.
   ///
-  /// La narration n'a pas de personnage. Quand le personnage change, son nom
-  /// anglais est repris d'une autre ligne de l'histoire où il parle.
+  /// La narration n'a pas de personnage.
   Future<void> updateLine(
     int lineId, {
     required LineRowKind kind,
@@ -45,12 +44,10 @@ mixin _Lines on _LibraryBase {
     String? speaker,
   }) async {
     _checkSpoken(kind);
-    final row = await _lineById(lineId);
     final who = kind == LineRowKind.narration ? null : _clean(speaker);
-    final speakerEn = await _speakerEnFor(row, who);
     await _db.update(
       'lines',
-      {'kind': kind.name, 'text': text.trim(), 'speaker': who, 'speaker_en': speakerEn},
+      {'kind': kind.name, 'text': text.trim(), 'speaker': who},
       where: 'id = ?',
       whereArgs: [lineId],
     );
@@ -70,10 +67,9 @@ mixin _Lines on _LibraryBase {
     _checkSpoken(kind);
     final who = _clean(speaker);
     final newKind = kind.withSpeaker(who);
-    final speakerEn = await _speakerEnFor(row, who);
     await _db.update(
       'lines',
-      {'kind': newKind.name, 'text': trimmed, 'speaker': who, 'speaker_en': speakerEn},
+      {'kind': newKind.name, 'text': trimmed, 'speaker': who},
       where: 'id = ?',
       whereArgs: [lineId],
     );
@@ -83,7 +79,7 @@ mixin _Lines on _LibraryBase {
 
   /// Renomme un personnage dans toutes ses répliques : celles de l'histoire
   /// [storyId], ou de toutes les histoires si `null`. Si [to] existe déjà, les
-  /// deux personnages n'en font plus qu'un. Le nom anglais ne change pas.
+  /// deux personnages n'en font plus qu'un.
   /// Renvoie le nombre de répliques modifiées.
   Future<int> renameSpeaker(String from, String to, {int? storyId}) async {
     final target = _clean(to);
@@ -167,7 +163,6 @@ mixin _Lines on _LibraryBase {
         'position': position,
         'kind': LineRowKind.option.name,
         'text': label.trim(),
-        'text_en': '',
         'parent_id': choiceId,
       });
     });
@@ -185,7 +180,6 @@ mixin _Lines on _LibraryBase {
   }) async {
     _checkSpoken(kind);
     final who = kind == LineRowKind.narration ? null : _clean(speaker);
-    final speakerEn = await _speakerEn(partId, who);
     final id = await _db.transaction((txn) async {
       await _shift(txn, partId, position);
       return txn.insert('lines', {
@@ -193,9 +187,7 @@ mixin _Lines on _LibraryBase {
         'position': position,
         'kind': kind.name,
         'speaker': who,
-        'speaker_en': speakerEn,
         'text': text.trim(),
-        'text_en': '',
         'parent_id': parentId,
       });
     });
@@ -242,22 +234,5 @@ mixin _Lines on _LibraryBase {
       WHERE parent_id = ? OR parent_id IN (SELECT id FROM lines WHERE parent_id = ?)
     ''', [lineId, lineId]));
     return max == null || max < own ? own : max;
-  }
-
-  /// Nom anglais de [speaker] pour la ligne [row] : inchangé si le
-  /// personnage ne change pas, sinon repris d'une autre ligne de l'histoire.
-  Future<Object?> _speakerEnFor(_Row row, String? speaker) async =>
-      speaker == row['speaker'] ? row['speaker_en'] : await _speakerEn(row['part_id']! as int, speaker);
-
-  /// Nom anglais d'un personnage, repris d'une ligne de la même histoire.
-  Future<String?> _speakerEn(int partId, String? speaker) async {
-    if (speaker == null) return null;
-    final rows = await _db.rawQuery('''
-      SELECT l.speaker_en FROM lines l JOIN parts p ON p.id = l.part_id
-      WHERE p.story_id = (SELECT story_id FROM parts WHERE id = ?)
-        AND l.speaker = ? AND l.speaker_en IS NOT NULL AND l.speaker_en != ''
-      LIMIT 1
-    ''', [partId, speaker]);
-    return rows.isEmpty ? null : rows.single['speaker_en'] as String?;
   }
 }

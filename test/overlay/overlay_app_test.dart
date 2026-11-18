@@ -244,10 +244,7 @@ void main() {
     final db = await openLibraryDatabase(factory: databaseFactoryFfi, path: inMemoryDatabasePath, singleInstance: false);
     final library = LibraryRepository(db, coversDir: covers);
     DocParagraph p(String t, {bool h1 = false, bool list = false}) => DocParagraph(text: t, isHeading1: h1, isListItem: list);
-    final parsed = parseStoryParagraphs(
-      fr: [p('KINDLED', h1: true), p('Choix:'), p('A', list: true), p('Rafayel : Oui.'), p('B', list: true), p('Rafayel : Non.'), p('---'), p('Il part.')],
-      en: [p('KINDLED', h1: true), p('Choices :'), p('01. A'), p('Rafayel : Yes.'), p('02. B'), p('Rafayel : No.'), p('---'), p('He leaves.')],
-    );
+    final parsed = parseStoryParagraphs([p('KINDLED', h1: true), p('Choix:'), p('A', list: true), p('Rafayel : Oui.'), p('B', list: true), p('Rafayel : Non.'), p('---'), p('Il part.')]);
     final folder = await library.folderFor((await library.characters()).first.id, FolderType.memoria, rarity: 5);
     final id = await library.saveStory(folderId: folder, title: 'T', parsed: parsed);
 

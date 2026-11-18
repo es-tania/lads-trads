@@ -32,38 +32,21 @@ final _fr = [
   p('Rafayel : À demain.'),
 ];
 
-final _en = [
-  p('Into The Canvas (Memoria)', h1: true),
-  p('EPISODE 1', h1: true),
-  p('Rafayel : The colors are ready.'),
-  p('MC : (He looks happy.)'),
-  p('He smiles.'),
-  p('KINDLED', h1: true),
-  p('Choices :'),
-  p('01. Success!'),
-  p('Rafayel : Not bad.'),
-  p('02. Failure...'),
-  p('Rafayel : Too bad.'),
-  p('---'),
-  p('Rafayel : See you tomorrow.'),
-];
-
 /// Structure lisible d'une histoire analysée, pour comparer deux imports.
-List<String> outline(ParsedStory s, {bool en = false}) => [
+List<String> outline(ParsedStory s) => [
       for (final part in s.parts) ...[
-        '# ${en ? part.title.en : part.title.fr}',
+        '# ${part.title}',
         for (final item in part.items)
           switch (item) {
-            StoryLine() => _line(item, en),
+            StoryLine() => _line(item),
             Choice() => [
-                for (final o in item.options) '* ${en ? o.label.en : o.label.fr} → ${o.lines.map((l) => _line(l, en)).join(' | ')}',
+                for (final o in item.options) '* ${o.label} → ${o.lines.map(_line).join(' | ')}',
               ].join(' ; '),
           },
       ],
     ];
 
-String _line(StoryLine l, bool en) =>
-    '${l.kind.name}:${en ? l.speaker?.en ?? '-' : l.speaker?.fr ?? '-'}:${en ? l.text.en : l.text.fr}';
+String _line(StoryLine l) => '${l.kind.name}:${l.speaker ?? '-'}:${l.text}';
 
 void main() {
   sqfliteFfiInit();
@@ -76,53 +59,37 @@ void main() {
     final db = await openLibraryDatabase(factory: databaseFactoryFfi, path: inMemoryDatabasePath, singleInstance: false);
     repo = LibraryRepository(db, coversDir: covers);
     final folder = await repo.folderFor((await repo.characters()).first.id, FolderType.memoria, rarity: 5);
-    storyId = await repo.saveStory(folderId: folder, title: '', parsed: parseStoryParagraphs(fr: _fr, en: _en));
+    storyId = await repo.saveStory(folderId: folder, title: '', parsed: parseStoryParagraphs(_fr));
   });
 
   tearDown(() => covers.delete(recursive: true));
 
-  Future<ExportFile> export(ExportLanguage language) async =>
-      (await exportStory(repo, storyId, language: language)).first;
+  Future<ExportFile> export() => exportStory(repo, storyId);
 
-  test('FR et EN exportés se réimportent à l\'identique', () async {
-    final original = parseStoryParagraphs(fr: _fr, en: _en);
-    final files = await exportStory(repo, storyId, language: ExportLanguage.both);
-    expect(files.map((f) => f.name), ['Into The Canvas - FR.docx', 'Into The Canvas - EN.docx']);
+  test("l'histoire exportée se réimporte à l'identique", () async {
+    final file = await export();
+    expect(file.name, 'Into The Canvas - FR.docx');
 
-    final again = parseStoryDocx(fr: files[0].bytes, en: files[1].bytes);
-    expect(again.title.fr, 'Into The Canvas');
+    final again = parseStoryDocx(file.bytes);
+    expect(again.title, 'Into The Canvas');
     expect(again.warnings, isEmpty);
-    expect(outline(again), outline(original));
-    expect(outline(again, en: true), outline(original, en: true));
+    expect(outline(again), outline(parseStoryParagraphs(_fr)));
   });
 
-  test('les corrections faites dans l\'éditeur sont dans le FR exporté', () async {
+  test("les corrections faites dans l'éditeur sont dans le fichier exporté", () async {
     final part = (await repo.parts(storyId)).first;
     final first = (await repo.lines(part.id)).first;
     await repo.updateLine(first.id, kind: LineRowKind.dialogue, text: 'Tout est prêt.', speaker: 'Rafayel');
     await repo.appendLine(part.id, kind: LineRowKind.thought, text: 'Enfin seuls', speaker: 'Moi');
 
-    final fr = readDocxParagraphs((await export(ExportLanguage.fr)).bytes).map((x) => x.text).toList();
-    expect(fr, contains('Rafayel : Tout est prêt.'));
-    expect(fr, contains('Moi : (Enfin seuls)'), reason: 'une pensée garde ses parenthèses');
-
-    // Réplique ajoutée sans anglais : absente de l'EN.
-    final en = readDocxParagraphs((await export(ExportLanguage.en)).bytes).map((x) => x.text).toList();
-    expect(en, isNot(contains(contains('Enfin seuls'))));
-  });
-
-  test('le bilingue met l\'anglais puis le français, ligne par ligne', () async {
-    final file = await export(ExportLanguage.bilingual);
-    expect(file.name, 'Into The Canvas - EN-FR.docx');
-    final texts = readDocxParagraphs(file.bytes).map((x) => x.text).toList();
-    final i = texts.indexOf('Rafayel : The colors are ready.');
-    expect(texts[i + 1], 'Rafayel : Les couleurs sont prêtes.');
-    expect(texts, contains('EPISODE 1 / ÉPISODE 1'));
+    final texts = readDocxParagraphs((await export()).bytes).map((x) => x.text).toList();
+    expect(texts, contains('Rafayel : Tout est prêt.'));
+    expect(texts, contains('Moi : (Enfin seuls)'), reason: 'une pensée garde ses parenthèses');
   });
 
   test('les noms de fichiers évitent les caractères interdits', () {
-    expect(exportFileNames('Qui ? Moi / toi', ExportLanguage.fr), ['Qui Moi toi - FR.docx']);
-    expect(exportFileNames('  ', ExportLanguage.en), ['Histoire - EN.docx']);
+    expect(exportFileName('Qui ? Moi / toi'), 'Qui Moi toi - FR.docx');
+    expect(exportFileName('  '), 'Histoire - FR.docx');
   });
 
   test('buildDocx échappe le texte et garde les retours à la ligne', () {
@@ -133,7 +100,7 @@ void main() {
   });
 
   test('les noms des personnages sont en gras, pas le texte', () async {
-    final file = await export(ExportLanguage.fr);
+    final file = await export();
     final xml = utf8.decode(ZipDecoder().decodeBytes(file.bytes).findFile('word/document.xml')!.content);
     final runs = RegExp(r'<w:r>(.*?)</w:r>').allMatches(xml).map((m) => m.group(1)!).toList();
     final name = runs.indexWhere((r) => r.contains('>Rafayel</w:t>'));
@@ -149,7 +116,7 @@ void main() {
     final part = (await repo.parts(storyId)).first;
     final first = (await repo.lines(part.id)).first;
     await repo.updateLine(first.id, kind: LineRowKind.dialogue, text: 'Les <i>couleurs</i> sont <b>prêtes</b>.', speaker: 'Rafayel');
-    final file = await export(ExportLanguage.fr);
+    final file = await export();
     final xml = utf8.decode(ZipDecoder().decodeBytes(file.bytes).findFile('word/document.xml')!.content);
     final runs = RegExp(r'<w:r>(.*?)</w:r>').allMatches(xml).map((m) => m.group(1)!).toList();
     String run(String text) => runs.firstWhere((r) => r.contains('>$text</w:t>'));

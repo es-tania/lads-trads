@@ -42,7 +42,6 @@ Story _story(_Row r) => Story(
       id: r['id']! as int,
       folderId: r['folder_id']! as int,
       title: r['title']! as String,
-      titleEn: r['title_en']! as String,
       coverPath: r['cover_path'] as String?,
       coverCrop: _cropFrom(r, _coverCrop),
       createdAt: DateTime.fromMillisecondsSinceEpoch(r['created_at']! as int),
@@ -64,7 +63,6 @@ Part _part(_Row r, int storyId) => Part(
       storyId: storyId,
       position: r['position']! as int,
       title: r['title']! as String,
-      titleEn: r['title_en']! as String,
       lineCount: r['line_count']! as int,
     );
 
@@ -74,9 +72,7 @@ LineRow _line(_Row r) => LineRow(
       position: r['position']! as int,
       kind: LineRowKind.fromName(r['kind']! as String),
       text: r['text']! as String,
-      textEn: r['text_en']! as String,
       speaker: r['speaker'] as String?,
-      speakerEn: r['speaker_en'] as String?,
       parentId: r['parent_id'] as int?,
       paragraph: r['paragraph'] as int?,
     );

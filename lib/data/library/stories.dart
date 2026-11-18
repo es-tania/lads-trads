@@ -21,7 +21,7 @@ mixin _Stories on _LibraryBase {
     return rows.isEmpty ? null : _story(rows.single);
   }
 
-  /// Recherche dans les titres FR et EN, tous personnages confondus.
+  /// Recherche dans les titres, tous personnages confondus.
   Future<List<Story>> searchStories(String query) async {
     final q = query.trim();
     if (q.isEmpty) return const [];
@@ -29,8 +29,8 @@ mixin _Stories on _LibraryBase {
     final escaped = q.replaceAll('!', '!!').replaceAll('%', '!%').replaceAll('_', '!_');
     final like = '%$escaped%';
     final rows = await _db.rawQuery(
-      "$_storySelect WHERE s.title LIKE ? ESCAPE '!' OR s.title_en LIKE ? ESCAPE '!' ORDER BY s.title",
-      [like, like],
+      "$_storySelect WHERE s.title LIKE ? ESCAPE '!' ORDER BY s.title",
+      [like],
     );
     return rows.map(_story).toList();
   }
@@ -43,15 +43,6 @@ mixin _Stories on _LibraryBase {
       FROM parts p WHERE p.story_id = ? ORDER BY p.position
     ''', [storyId]);
     return [for (final r in rows) _part(r, storyId)];
-  }
-
-  /// L'histoire a-t-elle du texte anglais (importée avec un EN.docx) ?
-  Future<bool> hasEnglish(int storyId) async {
-    final rows = await _db.rawQuery('''
-      SELECT 1 FROM lines l JOIN parts p ON p.id = l.part_id
-      WHERE p.story_id = ? AND TRIM(l.text_en) != '' LIMIT 1
-    ''', [storyId]);
-    return rows.isNotEmpty;
   }
 
   // ── Import ────────────────────────────────────────────────────────────
@@ -68,8 +59,7 @@ mixin _Stories on _LibraryBase {
     final storyId = await _db.transaction((txn) async {
       final storyId = await txn.insert('stories', {
         'folder_id': folderId,
-        'title': title.trim().isEmpty ? parsed.title.fr : title.trim(),
-        'title_en': parsed.title.en,
+        'title': title.trim().isEmpty ? parsed.title : title.trim(),
         'created_at': DateTime.now().millisecondsSinceEpoch,
       });
       await _insertParts(txn, storyId, parsed);
@@ -84,11 +74,10 @@ mixin _Stories on _LibraryBase {
   }
 
   /// Remplace les parties et répliques d'une histoire par celles d'un
-  /// nouveau .docx. Le titre FR, le dossier et la couverture sont gardés.
+  /// nouveau .docx. Le titre, le dossier et la couverture sont gardés.
   Future<void> replaceStoryContent(int storyId, ParsedStory parsed) async {
     await _db.transaction((txn) async {
       await txn.delete('parts', where: 'story_id = ?', whereArgs: [storyId]);
-      await txn.update('stories', {'title_en': parsed.title.en}, where: 'id = ?', whereArgs: [storyId]);
       await _insertParts(txn, storyId, parsed);
     });
     notifyListeners();
@@ -99,8 +88,7 @@ mixin _Stories on _LibraryBase {
       final partId = await txn.insert('parts', {
         'story_id': storyId,
         'position': index,
-        'title': part.title.fr,
-        'title_en': part.title.en,
+        'title': part.title,
       });
       await _insertItems(txn, partId, part.items);
     }
@@ -116,10 +104,8 @@ mixin _Stories on _LibraryBase {
             LineKind.thought => LineRowKind.thought.name,
             LineKind.narration => LineRowKind.narration.name,
           },
-          'speaker': line.speaker?.fr,
-          'speaker_en': line.speaker?.en,
-          'text': line.text.fr,
-          'text_en': line.text.en,
+          'speaker': line.speaker,
+          'text': line.text,
           'parent_id': parentId,
           'paragraph': line.paragraph,
         });
@@ -133,8 +119,7 @@ mixin _Stories on _LibraryBase {
             'part_id': partId,
             'position': position++,
             'kind': LineRowKind.choice.name,
-            'text': item.prompt.fr,
-            'text_en': item.prompt.en,
+            'text': item.prompt,
             'paragraph': item.paragraph,
           });
           for (final option in item.options) {
@@ -142,8 +127,7 @@ mixin _Stories on _LibraryBase {
               'part_id': partId,
               'position': position++,
               'kind': LineRowKind.option.name,
-              'text': option.label.fr,
-              'text_en': option.label.en,
+              'text': option.label,
               'parent_id': choiceId,
               'paragraph': option.paragraph,
             });

@@ -42,8 +42,7 @@ void main() {
   });
 
   test('enregistre parties, répliques, choix et branches dans l\'ordre', () async {
-    final parsed = parseStoryParagraphs(
-      fr: [
+    final parsed = parseStoryParagraphs([
         p('ÉPISODE 1', h1: true),
         p('Rafayel : Salut.'),
         p('KINDLED', h1: true),
@@ -54,20 +53,7 @@ void main() {
         p('Rafayel : Dommage.'),
         p('---'),
         p('Il sourit.'),
-      ],
-      en: [
-        p('EPISODE 1', h1: true),
-        p('Rafayel : Hi.'),
-        p('KINDLED', h1: true),
-        p('Choices :'),
-        p('01. Success!'),
-        p('Rafayel : Well done.'),
-        p('02. Failure...'),
-        p('Rafayel : Too bad.'),
-        p('---'),
-        p('He smiles.'),
-      ],
-    );
+      ]);
     final rafayel = (await repo.characters()).first.id;
     final folder = await repo.folderFor(rafayel, FolderType.memoria, rarity: 5);
     var notified = 0;
@@ -106,11 +92,11 @@ void main() {
     final choice = lines[0];
     final success = lines[1];
     expect(success.parentId, choice.id);
-    expect(success.textEn, 'Success!');
+    expect(success.text, 'Réussite !');
     expect(lines[2].parentId, success.id);
     expect(lines[4].parentId, lines[3].id);
     expect(lines[5].parentId, isNull);
-    expect(lines[5].textEn, 'He smiles.');
+    expect(lines[5].text, 'Il sourit.');
 
     final folders = await repo.folders(rafayel);
     expect(folders.single.storyCount, 1);
@@ -121,7 +107,7 @@ void main() {
   });
 
   test('supprimer une histoire efface ses parties et sa couverture', () async {
-    final parsed = parseStoryParagraphs(fr: [p('FIN', h1: true), p('Il part.')], en: [p('END', h1: true), p('He leaves.')]);
+    final parsed = parseStoryParagraphs([p('FIN', h1: true), p('Il part.')]);
     final rafayel = (await repo.characters()).first.id;
     final folder = await repo.folderFor(rafayel, FolderType.other);
     final id = await repo.saveStory(folderId: folder, title: '', parsed: parsed, coverBytes: Uint8List(1), coverName: 'c.jpg');
@@ -187,7 +173,7 @@ void main() {
   Future<int> storyIn(int folderId, {Uint8List? cover}) => repo.saveStory(
         folderId: folderId,
         title: 'Into The Canvas',
-        parsed: parseStoryParagraphs(fr: [p('FIN', h1: true), p('Il part.')], en: [p('END', h1: true), p('He leaves.')]),
+        parsed: parseStoryParagraphs([p('FIN', h1: true), p('Il part.')]),
         coverBytes: cover,
         coverName: cover == null ? null : 'c.png',
       );
@@ -219,10 +205,7 @@ void main() {
 
     await repo.replaceStoryContent(
       id,
-      parseStoryParagraphs(
-        fr: [p('UN', h1: true), p('A.'), p('DEUX', h1: true), p('B.'), p('C.')],
-        en: [p('ONE', h1: true), p('A.'), p('TWO', h1: true), p('B.'), p('C.')],
-      ),
+      parseStoryParagraphs([p('UN', h1: true), p('A.'), p('DEUX', h1: true), p('B.'), p('C.')]),
     );
 
     final after = (await repo.story(id))!;
@@ -286,17 +269,5 @@ void main() {
     // À moitié de la taille, poussé à gauche : il bute sur le bord.
     final r = const ImageCrop(x: 0, y: 0.5, d: 0.5).frameIn(size, aspect: 3 / 4);
     expect(r, const Rect.fromLTWH(0, 75, 112.5, 150));
-  });
-
-  test("hasEnglish dit si l'histoire a été importée avec l'anglais", () async {
-    final folder = await repo.folderFor((await repo.characters()).first.id, FolderType.other);
-    final withEn = await storyIn(folder);
-    final frOnly = await repo.saveStory(
-      folderId: folder,
-      title: 'Sans anglais',
-      parsed: parseStoryParagraphs(fr: [p('FIN', h1: true), p('Il part.')]),
-    );
-    expect(await repo.hasEnglish(withEn), isTrue);
-    expect(await repo.hasEnglish(frOnly), isFalse);
   });
 }

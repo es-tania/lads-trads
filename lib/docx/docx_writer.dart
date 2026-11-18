@@ -12,7 +12,6 @@ class OutParagraph {
     this.text, {
     this.heading = false,
     this.listItem = false,
-    this.muted = false,
     this.spans,
   });
 
@@ -26,9 +25,6 @@ class OutParagraph {
 
   /// Puce : une option de choix.
   final bool listItem;
-
-  /// Texte gris, pour l'anglais d'un export bilingue.
-  final bool muted;
 }
 
 const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
@@ -56,7 +52,7 @@ Uint8List buildDocx(List<OutParagraph> paragraphs) {
             });
           }
           for (final s in _merged(p.spans ?? [MarkupSpan(p.text)])) {
-            _runs(body, s.text, muted: p.muted, bold: s.bold, italic: s.italic);
+            _runs(body, s.text, bold: s.bold, italic: s.italic);
           }
         });
       }
@@ -102,13 +98,12 @@ List<MarkupSpan> _merged(List<MarkupSpan> spans) {
 }
 
 /// Texte d'un paragraphe ; les retours à la ligne deviennent des `<w:br/>`.
-void _runs(XmlBuilder b, String text, {required bool muted, bool bold = false, bool italic = false}) {
+void _runs(XmlBuilder b, String text, {bool bold = false, bool italic = false}) {
   b.element('w:r', nest: () {
-    if (muted || bold || italic) {
+    if (bold || italic) {
       b.element('w:rPr', nest: () {
         if (bold) b.element('w:b');
         if (italic) b.element('w:i');
-        if (muted) b.element('w:color', attributes: {'w:val': '7A8296'});
       });
     }
     for (final (i, line) in text.split('\n').indexed) {

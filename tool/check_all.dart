@@ -1,7 +1,7 @@
 // Passe toutes les histoires d'un dossier au parseur et résume le résultat.
 // Usage : dart run tool/check_all.dart <dossier racine> [--details]
 //
-// Chaque sous-dossier qui contient FR.docx et EN.docx est une histoire.
+// Chaque sous-dossier qui contient FR.docx est une histoire.
 import 'dart:io';
 
 import 'package:lads_trad/docx/story_parser.dart';
@@ -32,17 +32,16 @@ void main(List<String> args) {
   dirs.sort((a, b) => a.path.compareTo(b.path));
   for (final dir in dirs) {
     final fr = File('${dir.path}${Platform.pathSeparator}FR.docx');
-    final en = File('${dir.path}${Platform.pathSeparator}EN.docx');
-    if (!fr.existsSync() || !en.existsSync()) continue;
+    if (!fr.existsSync()) continue;
     stories++;
     final name = dir.path.substring(root.path.length).replaceAll(r'\', '/');
     try {
-      final story = parseStoryDocx(fr: fr.readAsBytesSync(), en: en.readAsBytesSync());
+      final story = parseStoryDocx(fr.readAsBytesSync());
       final lines = story.parts.fold<int>(0, (n, p) => n + p.allLines.length);
       if (story.warnings.isNotEmpty) withWarnings++;
       stdout.writeln(
         '${story.warnings.isEmpty ? 'OK ' : '!! '} $name : ${story.parts.length} parties, $lines répliques, '
-        '${story.untranslated.length} EN seules, ${story.warnings.length} à vérifier',
+        '${story.warnings.length} à vérifier',
       );
       if (details) {
         for (final w in story.warnings) {

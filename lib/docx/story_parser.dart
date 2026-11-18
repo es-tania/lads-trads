@@ -1,12 +1,10 @@
 import 'dart:typed_data';
 
-import 'aligner.dart';
 import 'docx_reader.dart';
 import 'story_model.dart';
 
-/// Lit FR.docx et, s'il est fourni, EN.docx, et construit l'histoire.
-ParsedStory parseStoryDocx({required Uint8List fr, Uint8List? en}) =>
-    parseStoryParagraphs(fr: readDocxParagraphs(fr), en: en == null ? null : readDocxParagraphs(en));
+/// Lit un FR.docx et construit l'histoire.
+ParsedStory parseStoryDocx(Uint8List bytes) => parseStoryParagraphs(readDocxParagraphs(bytes));
 
 /// Nature d'un paragraphe, dans une seule langue.
 enum ParaKind { empty, heading, separator, choicePrompt, choiceOption, dialogue, thought, narration }
@@ -24,13 +22,6 @@ class ParaInfo {
   final String? speaker;
 
   bool get isLine => kind == ParaKind.dialogue || kind == ParaKind.thought || kind == ParaKind.narration;
-
-  /// Nom de plus de 4 mots (« Propriétaire de la boutique de vins ») : sans
-  /// doute un personnage, mais ce pourrait être le début d'une phrase.
-  bool get hasLongSpeaker => speaker != null && speaker!.split(RegExp(r'\s+')).length > 4;
-
-  /// La même ligne, lue comme de la narration.
-  ParaInfo asNarration() => ParaInfo(ParaKind.narration, raw);
 }
 
 final _separator = RegExp(r'^-{3,}$');
@@ -100,11 +91,10 @@ class _Kept {
   final ParaInfo info;
 }
 
-/// Garde les paragraphes qui comptent pour l'alignement FR/EN.
+/// Garde les paragraphes utiles.
 ///
-/// Les lignes vides et les « --- » sont retirés, sauf le « --- » qui ferme un
-/// choix. Ainsi, un « --- » de mise en page présent dans un seul des deux
-/// fichiers ne décale pas les répliques suivantes.
+/// Les lignes vides et les « --- » de mise en page sont retirés ; seul reste
+/// le « --- » qui ferme un choix.
 List<_Kept> _keepMeaningful(List<DocParagraph> paragraphs) {
   final kept = <_Kept>[];
   var inChoice = false;
@@ -129,153 +119,46 @@ List<_Kept> _keepMeaningful(List<DocParagraph> paragraphs) {
   return kept;
 }
 
-/// Construit l'histoire à partir des paragraphes FR et, s'il y en a, EN.
-///
-/// Les lignes utiles des deux fichiers (voir [_keepMeaningful]) sont mises en
-/// correspondance par [alignLines]. La structure (parties, choix) suit le FR.
-/// Sans EN ([en] `null`), l'histoire n'a que le français, sans avertissement
-/// sur l'anglais manquant.
-ParsedStory parseStoryParagraphs({required List<DocParagraph> fr, List<DocParagraph>? en}) {
+/// Construit l'histoire à partir des paragraphes du fichier.
+ParsedStory parseStoryParagraphs(List<DocParagraph> paragraphs) {
   final warnings = <ImportWarning>[];
-  final untranslated = <EnOnlyLine>[];
-  final frOnly = _FrOnlyRuns(enabled: en != null);
-  final keptFr = _keepMeaningful(fr);
-  final keptEn = en == null ? const <_Kept>[] : _keepMeaningful(en);
-  final pairs = en == null
-      ? [for (var i = 0; i < keptFr.length; i++) AlignedPair(i, null)]
-      : alignLines([for (final k in keptFr) k.info], [for (final k in keptEn) k.info]);
+  final kept = _keepMeaningful(paragraphs);
   final b = _Builder(warnings);
-  var first = true;
 
-  for (final pair in pairs) {
-    if (pair.fr == null) {
-      // Ligne EN sans traduction : en général l'interface du jeu.
-      final e = keptEn[pair.en!];
-      untranslated.add(EnOnlyLine(e.paragraph, e.info.raw));
+  for (final (k, _Kept(paragraph: i, :info)) in kept.indexed) {
+    // Le premier « Titre 1 » suivi directement d'un autre « Titre 1 » est le
+    // titre de l'histoire, pas une partie.
+    if (k == 0 && info.kind == ParaKind.heading && kept.length > 1 && kept[1].info.kind == ParaKind.heading) {
+      b.setTitle(info.text);
       continue;
     }
 
-    final i = keptFr[pair.fr!].paragraph;
-    if (pair.en != null) frOnly.close(warnings);
-    var f = keptFr[pair.fr!].info;
-    var e = pair.en == null ? null : keptEn[pair.en!].info;
-    if (e == null) {
-      frOnly.add(i, f.raw);
-      e = const ParaInfo(ParaKind.empty, '');
-    }
-
-    // Un titre de partie sans le style « Titre 1 » d'un côté.
-    if (e.kind == ParaKind.heading && f.kind == ParaKind.narration && _isShort(f.raw)) {
-      f = ParaInfo(ParaKind.heading, f.raw);
-    }
-
-    // Réplique d'un côté, narration de l'autre : un nom long (plus de 4 mots)
-    // était sans doute le début d'une phrase.
-    if (f.kind == ParaKind.narration && e.hasLongSpeaker) e = e.asNarration();
-    if (e.kind == ParaKind.narration && f.hasLongSpeaker) f = f.asNarration();
-
-    if (pair.en != null) _checkSameKind(i, f, e, warnings);
-
-    // Le premier « Titre 1 » suivi directement d'un autre « Titre 1 » est le
-    // titre de l'histoire, pas une partie.
-    if (first) {
-      first = false;
-      if (f.kind == ParaKind.heading && keptFr.length > 1 && keptFr[1].info.kind == ParaKind.heading) {
-        b.setTitle(Bi(f.text, e.raw));
-        continue;
-      }
-    }
-
-    switch (f.kind) {
+    switch (info.kind) {
       case ParaKind.empty:
         break;
       case ParaKind.heading:
-        b.startPart(i, Bi(f.text, e.raw));
+        b.startPart(i, info.text);
       case ParaKind.separator:
         b.endChoice();
       case ParaKind.choicePrompt:
-        b.startChoice(i, Bi(f.text, e.text));
+        b.startChoice(i, info.text);
       case ParaKind.choiceOption:
-        b.startOption(i, Bi(f.text, e.text));
+        b.startOption(i, info.text);
       case ParaKind.dialogue || ParaKind.thought || ParaKind.narration:
         b.line(StoryLine(
           paragraph: i,
-          kind: switch (f.kind) {
+          kind: switch (info.kind) {
             ParaKind.dialogue => LineKind.dialogue,
             ParaKind.thought => LineKind.thought,
             _ => LineKind.narration,
           },
-          speaker: f.speaker == null ? null : Bi(f.speaker!, e.speaker ?? ''),
-          text: Bi(f.text, e.text),
+          speaker: info.speaker,
+          text: info.text,
         ));
     }
   }
 
-  frOnly.close(warnings);
-  return b.finish(paragraphCount: fr.length, untranslated: untranslated);
-}
-
-bool _isShort(String s) => s.trim().split(RegExp(r'\s+')).length <= 4;
-
-String _short(String s) => s.length <= 40 ? s : '${s.substring(0, 40)}…';
-
-/// Regroupe les lignes FR sans EN en face en un avertissement par passage.
-/// C'est souvent un passage absent de l'EN.docx : ta traduction reste
-/// affichée, seule la référence anglaise manque.
-class _FrOnlyRuns {
-  _FrOnlyRuns({required this.enabled});
-
-  /// Faux sans fichier EN : l'absence d'anglais est voulue.
-  final bool enabled;
-  int? _first;
-  int? _last;
-  String _firstText = '';
-  var _count = 0;
-
-  void add(int paragraph, String text) {
-    if (!enabled) return;
-    if (_first == null) {
-      _first = paragraph;
-      _firstText = text;
-    }
-    _last = paragraph;
-    _count++;
-  }
-
-  void close(List<ImportWarning> warnings) {
-    if (_first == null) return;
-    warnings.add(ImportWarning(
-      _first,
-      _count == 1
-          ? 'Pas de ligne EN en face de « ${_short(_firstText)} ».'
-          : "$_count lignes sans EN en face (jusqu'au §$_last), à partir de « ${_short(_firstText)} ».",
-    ));
-    _first = null;
-    _count = 0;
-  }
-}
-
-/// Signale une différence de structure entre FR et EN (titre, choix, option
-/// face à une ligne ordinaire). Une réplique d'un côté et de la narration de
-/// l'autre n'est pas signalée : l'EN omet parfois le nom du personnage, et
-/// c'est le FR qui fait foi.
-void _checkSameKind(int i, ParaInfo f, ParaInfo e, List<ImportWarning> warnings) {
-  bool structural(ParaKind k) => !{ParaKind.dialogue, ParaKind.thought, ParaKind.narration}.contains(k);
-  if (!structural(f.kind) && !structural(e.kind)) return;
-  // Titre de partie sans le style « Titre 1 » dans l'EN : rien à signaler.
-  if (f.kind == ParaKind.heading && e.kind == ParaKind.narration && _isShort(e.raw)) return;
-  String group(ParaKind k) => switch (k) {
-        ParaKind.dialogue || ParaKind.thought => 'réplique',
-        ParaKind.narration => 'narration',
-        ParaKind.heading => 'titre de partie',
-        ParaKind.separator => '« --- »',
-        ParaKind.choicePrompt => '« Choix: »',
-        ParaKind.choiceOption => 'option de choix',
-        ParaKind.empty => 'ligne vide',
-      };
-  final gf = group(f.kind);
-  final ge = group(e.kind);
-  if (gf != ge) warnings.add(ImportWarning(i, 'FR : $gf, EN : $ge.'));
+  return b.finish(paragraphCount: paragraphs.length);
 }
 
 class _Builder {
@@ -284,38 +167,36 @@ class _Builder {
   final List<ImportWarning> warnings;
   final parts = <StoryPart>[];
 
-  Bi title = const Bi('', '');
+  String title = '';
   String? subtitle;
 
   int? _partParagraph;
-  Bi? _partTitle;
+  String? _partTitle;
   var _items = <PartItem>[];
 
   int? _choiceParagraph;
-  Bi? _choicePrompt;
+  String? _choicePrompt;
   final _options = <ChoiceOption>[];
   int? _optionParagraph;
-  Bi? _optionLabel;
+  String? _optionLabel;
   var _optionLines = <StoryLine>[];
 
   bool get inChoice => _choicePrompt != null;
 
-  void setTitle(Bi raw) {
-    final mFr = _titleSuffix.firstMatch(raw.fr);
-    final mEn = _titleSuffix.firstMatch(raw.en);
-    title = Bi(mFr?.group(1) ?? raw.fr, mEn?.group(1) ?? raw.en);
-    subtitle = mFr?.group(2);
+  void setTitle(String raw) {
+    final m = _titleSuffix.firstMatch(raw);
+    title = m?.group(1) ?? raw;
+    subtitle = m?.group(2);
   }
 
-  void startPart(int paragraph, Bi partTitle) {
+  void startPart(int paragraph, String partTitle) {
     if (inChoice) {
-      warnings.add(ImportWarning(_choiceParagraph, 'Choix sans « --- » de fin avant « ${partTitle.fr} ».'));
+      warnings.add(ImportWarning(_choiceParagraph, 'Choix sans « --- » de fin avant « $partTitle ».'));
       _closeChoice();
     }
     _closePart();
     _partParagraph = paragraph;
-    // « *START OF KINDLED* » → « START OF KINDLED ».
-    _partTitle = Bi(partTitle.fr, partTitle.en.replaceAll('*', '').trim());
+    _partTitle = partTitle;
   }
 
   /// « --- » qui ferme un choix (les autres ont été retirés avant).
@@ -323,7 +204,7 @@ class _Builder {
     if (inChoice) _closeChoice();
   }
 
-  void startChoice(int paragraph, Bi prompt) {
+  void startChoice(int paragraph, String prompt) {
     if (inChoice) {
       warnings.add(ImportWarning(_choiceParagraph, 'Choix sans « --- » de fin avant le choix suivant.'));
       _closeChoice();
@@ -333,7 +214,7 @@ class _Builder {
     _choicePrompt = prompt;
   }
 
-  void startOption(int paragraph, Bi label) {
+  void startOption(int paragraph, String label) {
     _closeOption();
     _optionParagraph = paragraph;
     _optionLabel = label;
@@ -353,7 +234,7 @@ class _Builder {
     _items.add(line);
   }
 
-  ParsedStory finish({required int paragraphCount, required List<EnOnlyLine> untranslated}) {
+  ParsedStory finish({required int paragraphCount}) {
     if (inChoice) {
       warnings.add(ImportWarning(_choiceParagraph, 'Choix sans « --- » de fin à la fin du fichier.'));
       _closeChoice();
@@ -371,7 +252,6 @@ class _Builder {
       parts: List.unmodifiable(parts),
       paragraphCount: paragraphCount,
       warnings: List.unmodifiable(warnings),
-      untranslated: List.unmodifiable(untranslated),
     );
   }
 
@@ -385,7 +265,7 @@ class _Builder {
     if (_partTitle != null) return;
     _untitledStart ??= paragraph;
     _partParagraph = paragraph;
-    _partTitle = const Bi('', '');
+    _partTitle = '';
   }
 
   void _closeOption() {

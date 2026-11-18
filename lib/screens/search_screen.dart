@@ -7,7 +7,7 @@ import '../theme/ink.dart';
 import '../widgets/cover.dart';
 import '../widgets/ink_widgets.dart';
 
-/// Recherche d'une histoire par son titre (FR ou EN), tous personnages confondus.
+/// Recherche d'une histoire par son titre, tous personnages confondus.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -40,7 +40,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       textInputAction: TextInputAction.search,
                       onChanged: (v) => setState(() => _query = v),
                       decoration: const InputDecoration(
-                        hintText: 'Titre en français ou en anglais',
+                        hintText: 'Titre de l’histoire',
                         prefixIcon: Icon(Icons.search_rounded, size: 18),
                         isDense: true,
                       ),

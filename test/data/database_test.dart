@@ -54,4 +54,33 @@ void main() {
     expect((await repo.characters()).first.crop, const ImageCrop(x: 0.4, y: 0.3, d: 0.5));
     await v2.close();
   });
+
+  test("la v5 efface l'anglais déjà importé et garde le français", () async {
+    final path = p.join(dir.path, 'lads_trad.db');
+    final v4 = await openLibraryDatabase(factory: databaseFactoryFfi, path: path, singleInstance: false, version: 4);
+    final character = (await v4.query('characters', limit: 1)).single['id']! as int;
+    final folder = await v4.insert('folders', {'character_id': character, 'name': 'Myths', 'type': 'myths', 'created_at': 1});
+    final story = await v4.insert('stories', {'folder_id': folder, 'title': 'Titre', 'title_en': 'Title', 'created_at': 2});
+    final part = await v4.insert('parts', {'story_id': story, 'position': 0, 'title': 'ÉPISODE 1', 'title_en': 'EPISODE 1'});
+    await v4.insert('lines', {
+      'part_id': part,
+      'position': 0,
+      'kind': 'dialogue',
+      'speaker': 'Moi',
+      'speaker_en': 'Me',
+      'text': 'Bonjour.',
+      'text_en': 'Hello.',
+    });
+    await v4.close();
+
+    final v5 = await openLibraryDatabase(factory: databaseFactoryFfi, path: path, singleInstance: false);
+    expect((await v5.query('stories')).single, containsPair('title_en', ''));
+    expect((await v5.query('parts')).single, containsPair('title_en', ''));
+    final line = (await v5.query('lines')).single;
+    expect(line, containsPair('text_en', ''));
+    expect(line['speaker_en'], isNull);
+    expect(line, containsPair('text', 'Bonjour.'));
+    expect(line, containsPair('speaker', 'Moi'));
+    await v5.close();
+  });
 }

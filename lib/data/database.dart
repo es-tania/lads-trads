@@ -8,7 +8,9 @@ const defaultCharacters = ['Rafayel', 'Xavier', 'Zayne', 'Sylus', 'Caleb'];
 /// Version 3 : note de traduction sur chaque ligne (colonne gardée, l'app
 /// ne s'en sert plus).
 /// Version 4 : cadrage des couvertures.
-const libraryDatabaseVersion = 4;
+/// Version 5 : plus d'anglais. Les colonnes `title_en`, `text_en` et
+/// `speaker_en` restent, vides : l'app ne les lit ni ne les écrit plus.
+const libraryDatabaseVersion = 5;
 
 /// Ouvre (ou crée) la base locale.
 ///
@@ -62,6 +64,15 @@ Future<void> _upgrade(Database db, int from, int to) async {
       ..execute('ALTER TABLE stories ADD COLUMN cover_crop_x REAL')
       ..execute('ALTER TABLE stories ADD COLUMN cover_crop_y REAL')
       ..execute('ALTER TABLE stories ADD COLUMN cover_crop_d REAL');
+    await batch.commit(noResult: true);
+  }
+  if (from < 5 && to >= 5) {
+    // L'app n'importe plus le texte anglais du jeu : celui déjà importé est
+    // effacé, pour qu'il ne soit jamais envoyé en ligne.
+    final batch = db.batch()
+      ..execute("UPDATE stories SET title_en = ''")
+      ..execute("UPDATE parts SET title_en = ''")
+      ..execute("UPDATE lines SET text_en = '', speaker_en = NULL");
     await batch.commit(noResult: true);
   }
 }

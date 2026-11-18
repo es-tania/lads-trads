@@ -32,7 +32,7 @@ class DocxFormatException implements Exception {
 /// Lit les paragraphes du corps d'un .docx, dans l'ordre.
 ///
 /// Les paragraphes de tableaux sont ignorés : seuls les paragraphes de premier
-/// niveau comptent, c'est ce qui garde FR et EN alignés.
+/// niveau comptent.
 List<DocParagraph> readDocxParagraphs(Uint8List bytes) {
   final Archive archive;
   try {

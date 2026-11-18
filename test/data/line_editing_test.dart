@@ -27,8 +27,7 @@ void main() {
     storyId = await repo.saveStory(
       folderId: folder,
       title: 'Test',
-      parsed: parseStoryParagraphs(
-        fr: [
+      parsed: parseStoryParagraphs([
           p('KINDLED', h1: true),
           p('Rafayel : Salut.'),
           p('Choix:'),
@@ -38,19 +37,7 @@ void main() {
           p('Rafayel : Dommage.'),
           p('---'),
           p('Il sourit.'),
-        ],
-        en: [
-          p('KINDLED', h1: true),
-          p('Rafayel : Hi.'),
-          p('Choices :'),
-          p('01. Success!'),
-          p('Rafayel : Well done.'),
-          p('02. Failure...'),
-          p('Rafayel : Too bad.'),
-          p('---'),
-          p('He smiles.'),
-        ],
-      ),
+        ]),
     );
     partId = (await repo.parts(storyId)).single.id;
   });
@@ -68,12 +55,10 @@ void main() {
     var edited = await line('(Bonjour…)');
     expect(edited.kind, LineRowKind.thought);
     expect(edited.speaker, 'Moi');
-    expect(edited.speakerEn, isNull, reason: '« Moi » ne parle nulle part ailleurs');
-    expect(edited.textEn, 'Hi.', reason: 'l\'anglais reste pour se repérer');
 
     await repo.updateLine(hello.id, kind: LineRowKind.dialogue, text: 'Salut.', speaker: 'Rafayel');
     edited = await line('Salut.');
-    expect(edited.speakerEn, 'Rafayel', reason: 'nom anglais repris d\'une autre ligne');
+    expect(edited.speaker, 'Rafayel');
 
     await repo.updateLine(hello.id, kind: LineRowKind.narration, text: 'Silence.', speaker: 'Rafayel');
     expect((await line('Silence.')).speaker, isNull, reason: 'la narration n\'a pas de personnage');
@@ -105,7 +90,7 @@ void main() {
     ]);
     final encore = await line('Encore.');
     expect(encore.parentId, bravo.parentId, reason: 'même branche');
-    expect(encore.speakerEn, 'Rafayel');
+    expect(encore.speaker, 'Rafayel');
     expect((await line('Après le choix.')).parentId, isNull, reason: 'dans le tronc');
     expect((await repo.parts(storyId)).single.lineCount, 8);
   });
@@ -144,19 +129,19 @@ void main() {
 
     var kind = await repo.updateLineWhileReading(hello.id, text: '  Coucou.  ', speaker: 'Rafayel');
     var edited = await line('Coucou.');
-    expect((kind, edited.kind, edited.speaker, edited.textEn), (LineRowKind.dialogue, LineRowKind.dialogue, 'Rafayel', 'Hi.'));
+    expect((kind, edited.kind, edited.speaker), (LineRowKind.dialogue, LineRowKind.dialogue, 'Rafayel'));
 
     // Mauvais personnage dans la traduction : un nouveau.
     kind = await repo.updateLineWhileReading(hello.id, text: 'Coucou.', speaker: ' Zayne ');
     edited = await line('Coucou.');
-    expect((edited.speaker, edited.speakerEn), ('Zayne', null));
+    expect(edited.speaker, 'Zayne');
 
     // Plus personne ne parle : narration ; puis à nouveau une réplique.
     kind = await repo.updateLineWhileReading(hello.id, text: 'Coucou.', speaker: null);
     expect(((await line('Coucou.')).kind, (await line('Coucou.')).speaker), (LineRowKind.narration, null));
     kind = await repo.updateLineWhileReading(hello.id, text: 'Coucou.', speaker: 'Rafayel');
     expect(kind, LineRowKind.dialogue);
-    expect((await line('Coucou.')).speakerEn, 'Rafayel');
+    expect((await line('Coucou.')).speaker, 'Rafayel');
 
     await expectLater(repo.updateLineWhileReading(hello.id, text: ' ', speaker: null), throwsArgumentError);
     repo.refresh();
@@ -175,14 +160,13 @@ void main() {
     final other = await repo.saveStory(
       folderId: folder,
       title: 'Autre',
-      parsed: parseStoryParagraphs(fr: [p('FIN', h1: true), p('Rafayel : Au revoir.')]),
+      parsed: parseStoryParagraphs([p('FIN', h1: true), p('Rafayel : Au revoir.')]),
     );
     expect(await repo.speakerCounts('Rafayel', storyId), (inStory: 3, everywhere: 4));
 
     expect(await repo.renameSpeaker('Rafayel', ' Rafaël ', storyId: storyId), 3);
     expect(await repo.speakers(storyId), ['Rafaël']);
     expect((await repo.lines((await repo.parts(other)).single.id)).single.speaker, 'Rafayel', reason: 'autre histoire');
-    expect((await line('Salut.')).speakerEn, 'Rafayel', reason: 'le nom anglais ne change pas');
 
     expect(await repo.renameSpeaker('Rafayel', 'Rafaël'), 1, reason: 'toutes les histoires');
     expect(await repo.speakers(other), ['Rafaël']);

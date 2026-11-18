@@ -5,19 +5,6 @@ import '../data/models.dart';
 import '../text/markup.dart';
 import 'docx_writer.dart';
 
-/// Langue d'un export.
-enum ExportLanguage {
-  fr('Français', 'Ta traduction, avec les corrections'),
-  en('Anglais', 'Le texte original importé'),
-  both('Les deux', 'Deux fichiers séparés'),
-  bilingual('Bilingue', 'Anglais puis français, ligne par ligne, pour relire');
-
-  const ExportLanguage(this.label, this.hint);
-
-  final String label;
-  final String hint;
-}
-
 /// Un fichier prêt à enregistrer ou partager.
 class ExportFile {
   const ExportFile(this.name, this.bytes);
@@ -26,16 +13,8 @@ class ExportFile {
   final Uint8List bytes;
 }
 
-/// Noms des fichiers produits pour [title] dans cette langue.
-List<String> exportFileNames(String title, ExportLanguage language) {
-  final base = _safeName(title);
-  return switch (language) {
-    ExportLanguage.fr => ['$base - FR.docx'],
-    ExportLanguage.en => ['$base - EN.docx'],
-    ExportLanguage.both => ['$base - FR.docx', '$base - EN.docx'],
-    ExportLanguage.bilingual => ['$base - EN-FR.docx'],
-  };
-}
+/// Nom du fichier produit pour [title].
+String exportFileName(String title) => '${_safeName(title)} - FR.docx';
 
 /// Caractères interdits dans un nom de fichier retirés.
 String _safeName(String title) {
@@ -43,94 +22,43 @@ String _safeName(String title) {
   return cleaned.isEmpty ? 'Histoire' : cleaned;
 }
 
-/// Lit l'histoire en base et produit le ou les .docx demandés.
-Future<List<ExportFile>> exportStory(
-  LibraryRepository library,
-  int storyId, {
-  required ExportLanguage language,
-}) async {
+/// Lit l'histoire en base et produit son .docx.
+Future<ExportFile> exportStory(LibraryRepository library, int storyId) async {
   final story = await library.story(storyId);
   if (story == null) throw StateError('Histoire introuvable.');
   final parts = [for (final part in await library.parts(storyId)) (part, await library.lines(part.id))];
-  final names = exportFileNames(story.title, language);
-
-  List<OutParagraph> one(_Lang lang) => _storyParagraphs(story, parts, lang: lang);
-  return switch (language) {
-    ExportLanguage.fr => [ExportFile(names[0], buildDocx(one(_Lang.fr)))],
-    ExportLanguage.en => [ExportFile(names[0], buildDocx(one(_Lang.en)))],
-    ExportLanguage.both => [
-        ExportFile(names[0], buildDocx(one(_Lang.fr))),
-        ExportFile(names[1], buildDocx(one(_Lang.en))),
-      ],
-    ExportLanguage.bilingual => [ExportFile(names[0], buildDocx(one(_Lang.bilingual)))],
-  };
+  return ExportFile(exportFileName(story.title), buildDocx(_storyParagraphs(story, parts)));
 }
-
-enum _Lang { fr, en, bilingual }
 
 /// Paragraphes d'une histoire, dans la mise en forme des fichiers d'origine :
 /// titre et parties en « Titre 1 », « Nom : texte », « Choix: » suivi des
 /// options en puces et de leurs répliques, « --- » pour fermer le choix.
-List<OutParagraph> _storyParagraphs(
-  Story story,
-  List<(Part, List<LineRow>)> parts, {
-  required _Lang lang,
-}) {
+List<OutParagraph> _storyParagraphs(Story story, List<(Part, List<LineRow>)> parts) {
   final out = <OutParagraph>[];
-  final en = lang == _Lang.en;
-
-  String title(String fr, String english) => switch (lang) {
-        _Lang.fr => fr,
-        _Lang.en => english.isEmpty ? fr : english,
-        _Lang.bilingual => english.isEmpty || english == fr ? fr : '$english / $fr',
-      };
 
   // Le titre de l'histoire n'est reconnu que s'il est suivi d'un titre de partie.
   final firstPartTitled = parts.isNotEmpty && parts.first.$1.title.trim().isNotEmpty;
-  if (firstPartTitled && story.title.trim().isNotEmpty) {
-    out.add(OutParagraph(title(story.title, story.titleEn), heading: true));
-  }
+  if (firstPartTitled && story.title.trim().isNotEmpty) out.add(OutParagraph(story.title, heading: true));
 
   for (final (part, rows) in parts) {
-    if (part.title.trim().isNotEmpty) out.add(OutParagraph(title(part.title, part.titleEn), heading: true));
+    if (part.title.trim().isNotEmpty) out.add(OutParagraph(part.title, heading: true));
 
     final children = <int, List<LineRow>>{};
     for (final r in rows) {
       if (r.parentId != null) children.putIfAbsent(r.parentId!, () => []).add(r);
     }
 
-    void line(LineRow r) {
-      switch (lang) {
-        case _Lang.fr:
-          out.add(_lineParagraph(r, en: false));
-        case _Lang.en:
-          // Une réplique ajoutée dans l'éditeur n'a pas d'anglais.
-          if (r.textEn.trim().isNotEmpty) out.add(_lineParagraph(r, en: true));
-        case _Lang.bilingual:
-          if (r.textEn.trim().isNotEmpty) out.add(_lineParagraph(r, en: true, muted: true));
-          out.add(_lineParagraph(r, en: false));
-      }
-    }
-
     for (final row in rows.where((r) => r.parentId == null)) {
       if (row.kind == LineRowKind.option) continue;
       if (row.kind != LineRowKind.choice) {
-        line(row);
+        out.add(_lineParagraph(row));
         continue;
       }
-      out.add(OutParagraph(_choicePrompt(row, en: en)));
-      for (final (i, option) in (children[row.id] ?? const <LineRow>[]).indexed) {
-        final label = switch (lang) {
-          _Lang.fr => option.text,
-          _Lang.en => option.textEn.isEmpty ? option.text : option.textEn,
-          _Lang.bilingual => option.textEn.isEmpty || option.textEn == option.text
-              ? option.text
-              : '${option.textEn} / ${option.text}',
-        };
-        // L'anglais d'origine numérote ses options (« 01. Success! »).
-        out.add(OutParagraph(en ? '${(i + 1).toString().padLeft(2, '0')}. $label' : label, listItem: !en));
+      out.add(OutParagraph(row.text.trim().isEmpty ? 'Choix:' : row.text));
+      for (final option in children[row.id] ?? const <LineRow>[]) {
+        out.add(OutParagraph(option.text, listItem: true));
         for (final l in children[option.id] ?? const <LineRow>[]) {
-          line(l);
+          out.add(_lineParagraph(l));
         }
       }
       out.add(const OutParagraph('---'));
@@ -139,26 +67,18 @@ List<OutParagraph> _storyParagraphs(
   return out;
 }
 
-String _choicePrompt(LineRow row, {required bool en}) {
-  final text = en ? row.textEn : row.text;
-  if (text.trim().isNotEmpty) return text;
-  return en ? 'Choices :' : 'Choix:';
-}
-
 /// « Nom : texte », le nom en gras et le gras / l'italique du texte gardés ;
 /// une pensée garde ses parenthèses, pour être reconnue à la réimportation.
-OutParagraph _lineParagraph(LineRow r, {required bool en, bool muted = false}) {
-  final text = en ? r.textEn : r.text;
-  final spans = markupSpans(text);
+OutParagraph _lineParagraph(LineRow r) {
+  final spans = markupSpans(r.text);
   if (r.kind == LineRowKind.narration || r.speaker == null) {
-    return OutParagraph(plainText(text), spans: spans, muted: muted);
+    return OutParagraph(plainText(r.text), spans: spans);
   }
-  final speaker = en && (r.speakerEn?.trim().isNotEmpty ?? false) ? r.speakerEn! : r.speaker!;
-  final wrap = r.kind == LineRowKind.thought && !plainText(text).trimLeft().startsWith('(');
+  final speaker = r.speaker!;
+  final wrap = r.kind == LineRowKind.thought && !plainText(r.text).trimLeft().startsWith('(');
   final body = [if (wrap) const MarkupSpan('('), ...spans, if (wrap) const MarkupSpan(')')];
   return OutParagraph(
     '$speaker : ${body.map((s) => s.text).join()}',
     spans: [MarkupSpan(speaker, bold: true), const MarkupSpan(' : '), ...body],
-    muted: muted,
   );
 }

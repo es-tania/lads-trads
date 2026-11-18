@@ -64,10 +64,7 @@ void main() {
       await library.saveStory(
         folderId: folder,
         title: 'Into The Canvas',
-        parsed: parseStoryParagraphs(
-          fr: [_p('ÉPISODE 1', h1: true), _p('Rafayel : Salut.'), _p('KINDLED', h1: true), _p('Il sourit.')],
-          en: [_p('EPISODE 1', h1: true), _p('Rafayel : Hi.'), _p('KINDLED', h1: true), _p('He smiles.')],
-        ),
+        parsed: parseStoryParagraphs([_p('ÉPISODE 1', h1: true), _p('Rafayel : Salut.'), _p('KINDLED', h1: true), _p('Il sourit.')]),
       );
     });
     addTearDown(() => tester.runAsync(() => covers.delete(recursive: true)));
@@ -390,8 +387,7 @@ void main() {
       await library.saveStory(
         folderId: folder,
         title: 'Blossoms',
-        parsed: parseStoryParagraphs(
-          fr: [
+        parsed: parseStoryParagraphs([
             _p('KINDLED', h1: true),
             _p('Choix:'),
             _p('Réussite !', list: true),
@@ -400,18 +396,7 @@ void main() {
             _p('Rafayel : Dommage.'),
             _p('---'),
             _p('Il sourit.'),
-          ],
-          en: [
-            _p('KINDLED', h1: true),
-            _p('Choices :'),
-            _p('01. Success!'),
-            _p('Rafayel : Well done.'),
-            _p('02. Failure...'),
-            _p('Rafayel : Too bad.'),
-            _p('---'),
-            _p('He smiles.'),
-          ],
-        ),
+          ]),
       );
     });
     await _settle(tester);
@@ -441,7 +426,7 @@ void main() {
     expect(find.textContaining('Abandon'), findsNothing);
   });
 
-  testWidgets("La fiche ouvre l'export, qui propose les langues et les noms de fichiers", (tester) async {
+  testWidgets("La fiche ouvre l'export, en français seulement", (tester) async {
     await start(tester);
     await enterAdmin(tester);
     await tester.tap(find.text('Into The Canvas'));
@@ -456,17 +441,11 @@ void main() {
     await _settle(tester);
 
     expect(find.text('Into The Canvas - FR.docx'), findsOneWidget);
-    await tester.tap(find.text('Les deux'));
-    await tester.pump();
-    expect(find.text('Into The Canvas - EN.docx'), findsOneWidget);
-    await tester.tap(find.text('Bilingue'));
-    await tester.pump();
-    expect(find.text('Into The Canvas - EN-FR.docx'), findsOneWidget);
-    expect(find.text('Pour relire : ce fichier ne se réimporte pas'), findsOneWidget);
+    expect(find.text('Anglais'), findsNothing, reason: 'plus de choix de langue');
     expect(find.byType(SwitchListTile), findsNothing, reason: 'plus de notes de traduction à exporter');
   });
 
-  testWidgets('Télécharger et Partager passent les .docx produits', (tester) async {
+  testWidgets('Télécharger et Partager passent le .docx produit', (tester) async {
     await start(tester);
     final story = (await tester.runAsync(() async => (await library.searchStories('canvas')).single))!;
     final target = _FakeExportTarget();
@@ -487,53 +466,17 @@ void main() {
     await tester.tap(find.text('Ouvrir'));
     await _settle(tester);
 
-    await tester.tap(find.text('Les deux'));
-    await tester.pump();
     await tester.tap(find.text('Partager'));
     await _settle(tester);
-    expect(target.shared.single, ['Into The Canvas - FR.docx', 'Into The Canvas - EN.docx']);
+    expect(target.shared.single, ['Into The Canvas - FR.docx']);
     expect(target.subject, 'Into The Canvas');
 
     await tester.tap(find.text('Télécharger'));
     await _settle(tester);
-    expect(target.saved.single, ['Into The Canvas - FR.docx', 'Into The Canvas - EN.docx']);
-    expect(find.text('2 fichiers enregistrés.'), findsOneWidget);
+    expect(target.saved.single, ['Into The Canvas - FR.docx']);
+    expect(find.text('Fichier enregistré.'), findsOneWidget);
     expect(find.text('Télécharger'), findsNothing, reason: 'le panneau se ferme');
   });
-
-
-  testWidgets("Sans anglais importé, l'export ne propose que le français", (tester) async {
-    await start(tester);
-    final story = (await tester.runAsync(() async {
-      final folder = await library.folderFor((await library.characters()).first.id, FolderType.other);
-      final id = await library.saveStory(
-        folderId: folder,
-        title: 'Seulement FR',
-        parsed: parseStoryParagraphs(fr: [_p('FIN', h1: true), _p('Il part.')]),
-      );
-      return library.story(id);
-    }))!;
-    await tester.pumpWidget(Services(
-      library: library,
-      settings: settings,
-      child: MaterialApp(
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(onPressed: () => showExportSheet(context, story), child: const Text('Ouvrir')),
-          ),
-        ),
-      ),
-    ));
-    await tester.tap(find.text('Ouvrir'));
-    await _settle(tester);
-
-    expect(find.text("Histoire importée sans anglais : seul le français s'exporte."), findsOneWidget);
-    await tester.tap(find.text('Anglais'));
-    await tester.pump();
-    expect(find.text('Seulement FR - FR.docx'), findsOneWidget, reason: 'le choix reste le français');
-    expect(find.text('Seulement FR - EN.docx'), findsNothing);
-  });
-
 
   testWidgets("Dans l'éditeur, on met un passage en gras", (tester) async {
     await start(tester);

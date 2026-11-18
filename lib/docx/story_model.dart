@@ -1,21 +1,8 @@
-/// Modèle d'une histoire importée depuis un couple FR.docx / EN.docx.
+/// Modèle d'une histoire importée depuis un FR.docx.
 ///
 /// Histoire › Parties › éléments (répliques et choix). Les « --- » hors choix
 /// sont de la mise en page : ils ne sont pas gardés.
-/// Chaque texte existe en deux langues : [Bi.fr] est affiché, [Bi.en] sert à
-/// se repérer dans le jeu (et plus tard à la synchronisation par OCR).
 library;
-
-/// Un texte dans les deux langues.
-class Bi {
-  const Bi(this.fr, this.en);
-
-  final String fr;
-  final String en;
-
-  @override
-  String toString() => '$fr | $en';
-}
 
 enum LineKind {
   /// « Nom : texte »
@@ -46,11 +33,11 @@ class StoryLine extends PartItem {
   final LineKind kind;
 
   /// Nom du locuteur, `null` pour la narration.
-  final Bi? speaker;
-  final Bi text;
+  final String? speaker;
+  final String text;
 
   @override
-  String toString() => '${kind.name}#$paragraph ${speaker?.fr ?? '-'}: ${text.fr}';
+  String toString() => '${kind.name}#$paragraph ${speaker ?? '-'}: $text';
 }
 
 /// « Choix: » suivi des options, jusqu'au « --- ».
@@ -59,8 +46,8 @@ class Choice extends PartItem {
 
   final int paragraph;
 
-  /// « Choix: » / « Choices : », tel qu'écrit dans les fichiers.
-  final Bi prompt;
+  /// « Choix: », tel qu'écrit dans le fichier.
+  final String prompt;
   final List<ChoiceOption> options;
 }
 
@@ -69,8 +56,8 @@ class ChoiceOption {
 
   final int paragraph;
 
-  /// Libellé de l'option, sans la numérotation « 01. » de l'anglais.
-  final Bi label;
+  /// Libellé de l'option, sans numérotation (« 01. »).
+  final String label;
 
   /// Répliques propres à cette branche.
   final List<StoryLine> lines;
@@ -81,8 +68,8 @@ class StoryPart {
 
   final int paragraph;
 
-  /// « ÉPISODE 1 » / « EPISODE 1 ».
-  final Bi title;
+  /// « ÉPISODE 1 ».
+  final String title;
   final List<PartItem> items;
 
   /// Toutes les répliques, branches de choix comprises, dans l'ordre du fichier.
@@ -112,20 +99,6 @@ class ImportWarning {
   String toString() => paragraph == null ? message : '§$paragraph : $message';
 }
 
-/// Ligne de l'EN sans équivalent dans le FR, en général du texte de
-/// l'interface du jeu (« Taste », « *START OF KINDLED* »). Elle n'est pas
-/// affichée ; on la garde pour la montrer dans l'écran d'import.
-class EnOnlyLine {
-  const EnOnlyLine(this.paragraph, this.text);
-
-  /// Numéro du paragraphe dans l'EN.docx.
-  final int paragraph;
-  final String text;
-
-  @override
-  String toString() => 'EN§$paragraph $text';
-}
-
 class ParsedStory {
   const ParsedStory({
     required this.title,
@@ -133,20 +106,16 @@ class ParsedStory {
     required this.parts,
     required this.paragraphCount,
     required this.warnings,
-    this.untranslated = const [],
   });
 
   /// Titre tiré du premier « Titre 1 », sans la parenthèse finale. Peut être vide.
-  final Bi title;
+  final String title;
 
   /// Contenu de la parenthèse finale du titre (« Memoria »), s'il y en a une.
   final String? subtitle;
   final List<StoryPart> parts;
 
-  /// Nombre de paragraphes du fichier FR (identique à l'EN quand tout va bien).
+  /// Nombre de paragraphes du fichier.
   final int paragraphCount;
   final List<ImportWarning> warnings;
-
-  /// Lignes EN laissées de côté faute de traduction.
-  final List<EnOnlyLine> untranslated;
 }

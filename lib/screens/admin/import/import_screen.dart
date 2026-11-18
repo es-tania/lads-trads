@@ -25,7 +25,7 @@ class _Picked {
 
 /// Analyse dans un isolat séparé : une longue histoire (Myths) peut prendre
 /// une seconde, l'interface reste fluide pendant ce temps.
-ParsedStory _parseInBackground((Uint8List, Uint8List?) files) => parseStoryDocx(fr: files.$1, en: files.$2);
+ParsedStory _parseInBackground(Uint8List bytes) => parseStoryDocx(bytes);
 
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key, this.characterId, this.replaceStoryId});
@@ -45,7 +45,6 @@ class ImportScreen extends StatefulWidget {
 
 class _ImportScreenState extends State<ImportScreen> {
   _Picked? _fr;
-  _Picked? _en;
   _Picked? _cover;
   ImageCrop _coverCrop = ImageCrop.full;
   ParsedStory? _parsed;
@@ -78,16 +77,10 @@ class _ImportScreenState extends State<ImportScreen> {
     return _Picked(file.name, await file.readAsBytes());
   }
 
-  Future<void> _pickDocx({required bool french}) async {
+  Future<void> _pickDocx() async {
     final picked = await _pick(image: false);
     if (picked == null || !mounted) return;
-    setState(() => french ? _fr = picked : _en = picked);
-    await _parse();
-  }
-
-  /// Retire l'anglais choisi : l'histoire est relue sans lui.
-  Future<void> _removeEnglish() async {
-    setState(() => _en = null);
+    setState(() => _fr = picked);
     await _parse();
   }
 
@@ -113,20 +106,18 @@ class _ImportScreenState extends State<ImportScreen> {
   }
 
   Future<void> _parse() async {
-    // Le français suffit ; l'anglais, s'il est là, est aligné dessus.
     final fr = _fr;
-    final en = _en;
     if (fr == null) return;
     setState(() {
       _parsing = true;
       _error = null;
     });
     try {
-      final parsed = await compute(_parseInBackground, (fr.bytes, en?.bytes));
+      final parsed = await compute(_parseInBackground, fr.bytes);
       if (!mounted) return;
       setState(() {
         _parsed = parsed;
-        if (_title.text.trim().isEmpty) _title.text = parsed.title.fr;
+        if (_title.text.trim().isEmpty) _title.text = parsed.title;
         _folderKey ??= _guessFolder(parsed)?.key;
       });
     } on DocxFormatException catch (e) {
@@ -252,14 +243,14 @@ class _ImportScreenState extends State<ImportScreen> {
                       if (replacing)
                         const InkComingSoon(
                           text:
-                              'Les parties et répliques actuelles seront remplacées par celles des nouveaux fichiers. '
+                              'Les parties et répliques actuelles seront remplacées par celles du nouveau fichier. '
                               'Le titre, le dossier et la couverture sont gardés.',
                         )
                       else ...[
                         const InkSectionLabel('Classement'),
                         _classification(characters, choices),
                       ],
-                      if (_parsed != null) ...[const SizedBox(height: 24), ImportChecks(parsed: _parsed!, withEnglish: _en != null)],
+                      if (_parsed != null) ...[const SizedBox(height: 24), ImportChecks(parsed: _parsed!)],
                     ],
                   ),
                 ),
@@ -278,15 +269,13 @@ class _ImportScreenState extends State<ImportScreen> {
   Widget _filesGroup() {
     final parsed = _parsed;
     final lines = parsed?.parts.fold<int>(0, (n, p) => n + p.allLines.length);
-    String? frInfo;
-    String? enInfo;
+    final String? frInfo;
     if (_parsing) {
-      frInfo = enInfo = 'Lecture…';
+      frInfo = 'Lecture…';
     } else if (parsed != null) {
       frInfo = '$lines répliques · ${parsed.parts.length} parties';
-      if (_en != null) {
-        enInfo = parsed.untranslated.isEmpty ? 'aligné' : 'aligné · ${parsed.untranslated.length} lignes du jeu ignorées';
-      }
+    } else {
+      frInfo = null;
     }
 
     return InkGroup(
@@ -295,18 +284,8 @@ class _ImportScreenState extends State<ImportScreen> {
           badge: const ImportBadge('FR'),
           title: 'Texte français',
           detail: _fr == null ? 'Choisir FR.docx' : [_fr!.name, ?frInfo].join(' · '),
-          onTap: () => _pickDocx(french: true),
+          onTap: _pickDocx,
           changeLabel: _fr == null ? 'Choisir' : 'Changer',
-        ),
-        ImportFileRow(
-          badge: const ImportBadge('EN'),
-          title: 'Texte anglais',
-          subtitle: 'facultatif',
-          detail: _en == null ? 'Sans anglais · choisir EN.docx' : [_en!.name, ?enInfo].join(' · '),
-          onTap: () => _pickDocx(french: false),
-          changeLabel: _en == null ? 'Choisir' : 'Changer',
-          extraLabel: _en == null ? null : 'Retirer',
-          onExtra: _removeEnglish,
         ),
         if (!widget.replacing)
           ImportFileRow(

@@ -95,16 +95,12 @@ void main() {
       storyId = await library.saveStory(
         folderId: folder,
         title: 'Into The Canvas',
-        parsed: parseStoryParagraphs(
-          fr: [_p('ÉPISODE 1', h1: true), _p('Rafayel : Salut.'), _p('Il sourit.')],
-          en: [_p('EPISODE 1', h1: true), _p('Rafayel : Hi.'), _p('He smiles.')],
-        ),
+        parsed: parseStoryParagraphs([_p('ÉPISODE 1', h1: true), _p('Rafayel : Salut.'), _p('Il sourit.')]),
       );
       choiceStoryId = await library.saveStory(
         folderId: folder,
         title: 'Blossoms',
-        parsed: parseStoryParagraphs(
-          fr: [
+        parsed: parseStoryParagraphs([
             _p('KINDLED', h1: true),
             _p('Choix:'),
             _p('Réussite !', list: true),
@@ -112,8 +108,7 @@ void main() {
             _p('Échec…', list: true),
             _p('Rafayel : Dommage.'),
             _p('---'),
-          ],
-        ),
+          ]),
       );
     });
     addTearDown(() => tester.runAsync(() => covers.delete(recursive: true)));

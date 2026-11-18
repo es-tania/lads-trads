@@ -40,7 +40,7 @@ void main() {
 
   group('Part.displayTitle', () {
     Part part(String title, {int position = 0}) =>
-        Part(id: 1, storyId: 1, position: position, title: title, titleEn: '');
+        Part(id: 1, storyId: 1, position: position, title: title);
 
     test('un titre en capitales passe en minuscules', () {
       expect(part('ÉPISODE 1').displayTitle, 'Épisode 1');

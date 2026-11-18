@@ -159,7 +159,6 @@ class Story {
     required this.id,
     required this.folderId,
     required this.title,
-    required this.titleEn,
     required this.createdAt,
     this.coverPath,
     this.coverCrop,
@@ -171,7 +170,6 @@ class Story {
   final int id;
   final int folderId;
   final String title;
-  final String titleEn;
   final DateTime createdAt;
 
   /// Chemin de l'image de couverture dans le stockage de l'app.
@@ -194,7 +192,6 @@ class Part {
     required this.storyId,
     required this.position,
     required this.title,
-    required this.titleEn,
     this.lineCount = 0,
   });
 
@@ -204,7 +201,6 @@ class Part {
   /// Ordre dans l'histoire, à partir de 0.
   final int position;
   final String title;
-  final String titleEn;
 
   /// Nombre de répliques, branches comprises.
   final int lineCount;
@@ -256,9 +252,7 @@ class LineRow {
     required this.position,
     required this.kind,
     required this.text,
-    required this.textEn,
     this.speaker,
-    this.speakerEn,
     this.parentId,
     this.paragraph,
   });
@@ -268,9 +262,7 @@ class LineRow {
   final int position;
   final LineRowKind kind;
   final String text;
-  final String textEn;
   final String? speaker;
-  final String? speakerEn;
 
   /// Choix d'une option, ou option d'une réplique de branche.
   final int? parentId;
