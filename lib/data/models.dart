@@ -233,6 +233,19 @@ enum LineRowKind {
   option;
 
   static LineRowKind fromName(String name) => values.byName(name);
+
+  /// Une ligne qu'on lit (réplique, pensée ou narration), et non un choix
+  /// ou une option.
+  bool get isSpoken => this != choice && this != option;
+
+  /// Type de la ligne quand son personnage devient [speaker] : sans
+  /// personnage, c'est une narration ; une narration qui reçoit un
+  /// personnage devient une réplique ; une pensée reste une pensée.
+  LineRowKind withSpeaker(String? speaker) => switch ((this, speaker)) {
+        (_, null) => narration,
+        (narration, _) => dialogue,
+        _ => this,
+      };
 }
 
 /// Une ligne d'une partie, dans l'ordre du fichier.

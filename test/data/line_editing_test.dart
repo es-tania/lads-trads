@@ -167,9 +167,9 @@ void main() {
   });
 
   test('une pensée reste une pensée quand son personnage change', () {
-    expect(LibraryRepository.kindForSpeaker(LineRowKind.thought, 'Moi'), LineRowKind.thought);
-    expect(LibraryRepository.kindForSpeaker(LineRowKind.thought, null), LineRowKind.narration);
-    expect(LibraryRepository.kindForSpeaker(LineRowKind.narration, 'Moi'), LineRowKind.dialogue);
+    expect(LineRowKind.thought.withSpeaker('Moi'), LineRowKind.thought);
+    expect(LineRowKind.thought.withSpeaker(null), LineRowKind.narration);
+    expect(LineRowKind.narration.withSpeaker('Moi'), LineRowKind.dialogue);
   });
 
   test("renommer un personnage change toutes ses répliques, dans l'histoire ou partout", () async {
