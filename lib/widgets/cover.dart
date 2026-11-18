@@ -70,7 +70,7 @@ class CoverPlaceholder extends StatelessWidget {
           const Icon(Icons.image_outlined, size: 18, color: InkColors.textFaint),
           if (label != null) ...[
             const SizedBox(height: 8),
-            Text(label!, style: const TextStyle(fontSize: 13, color: InkColors.textFaint)),
+            Text(label!, style: InkText.hint),
           ],
         ],
       ),

@@ -10,6 +10,7 @@ import '../widgets/markup_field.dart';
 import 'overlay_host.dart';
 import 'overlay_messages.dart';
 import 'playback.dart';
+import '../text/line_labels.dart';
 
 /// Marge entre la fenêtre et les bords de l'écran.
 const _margin = 8.0;
@@ -539,7 +540,7 @@ class _Waiting extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 8),
-      child: Text('Chargement de la traduction…', style: TextStyle(fontSize: 13, color: InkColors.textMuted)),
+      child: Text('Chargement de la traduction…', style: InkText.label),
     );
   }
 }
@@ -566,7 +567,7 @@ class _StepView extends StatelessWidget {
   Widget build(BuildContext context) {
     final step = playback.current!;
     final (number, total) = playback.counter;
-    final counter = 'L.${_pad(number)}/${_pad(total)}';
+    final counter = 'L.${paddedNumber(number)}/${paddedNumber(total)}';
     final partTitle = _partTitle(playback.part.title);
     final showPart = playback.atPartStart || step.isChoice;
 
@@ -623,7 +624,6 @@ class _StepView extends StatelessWidget {
     );
   }
 
-  static String _pad(int n) => n.toString().padLeft(3, '0');
 
   /// « KINDLED » → « Kindled ».
   static String _partTitle(String title) {
@@ -922,7 +922,7 @@ class _ChoiceView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Quel choix as-tu fait ?', style: TextStyle(fontSize: 13, color: InkColors.textMuted)),
+        const Text('Quel choix as-tu fait ?', style: InkText.label),
         const SizedBox(height: 8),
         for (final (i, option) in options.indexed) ...[
           if (i > 0) const SizedBox(height: 6),
@@ -944,7 +944,7 @@ class _ChoiceView extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   child: Row(
                     children: [
-                      Text(String.fromCharCode(65 + i), style: InkText.count.copyWith(color: InkColors.textMuted)),
+                      Text(optionLetter(i), style: InkText.count.copyWith(color: InkColors.textMuted)),
                       const SizedBox(width: 10),
                       Expanded(child: Text(option.label, style: const TextStyle(fontFamily: InkFonts.display, fontSize: 15))),
                     ],
@@ -989,7 +989,7 @@ class _Bubble extends StatelessWidget {
               const Text('FR', style: TextStyle(fontSize: 13, height: 16 / 13, fontWeight: FontWeight.w500)),
               if (number != null)
                 Text(
-                  'L.${number.toString().padLeft(3, '0')}',
+                  lineLabel(number),
                   style: InkText.count.copyWith(fontSize: 11, height: 16 / 11, color: InkColors.textMuted),
                 ),
             ],

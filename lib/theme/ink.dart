@@ -73,6 +73,19 @@ abstract final class InkFonts {
 
 /// Styles de texte récurrents de la maquette.
 abstract final class InkText {
+  /// Libellé d'un champ, légende.
+  static const label = TextStyle(fontSize: 13, color: InkColors.textMuted);
+
+  /// Indication discrète (« Aucune image pour l'instant »…).
+  static const hint = TextStyle(fontSize: 13, color: InkColors.textFaint);
+
+  /// Message d'erreur sous un champ.
+  static const error = TextStyle(fontSize: 13, color: InkColors.error);
+
+  /// Texte d'un bouton, en taille normale et en petit.
+  static const button = TextStyle(fontFamily: InkFonts.ui, fontSize: 15);
+  static const buttonSmall = TextStyle(fontFamily: InkFonts.ui, fontSize: 14);
+
   static const screenTitle = TextStyle(
     fontFamily: InkFonts.display,
     fontSize: 30,

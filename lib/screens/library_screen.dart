@@ -359,7 +359,7 @@ class _FolderRow extends StatelessWidget {
                   children: [
                     Text(folder.name, style: InkText.row),
                     if (folder.type == FolderType.other)
-                      const Text('dossier perso', style: TextStyle(fontSize: 13, color: InkColors.textFaint)),
+                      const Text('dossier perso', style: InkText.hint),
                   ],
                 ),
               ),

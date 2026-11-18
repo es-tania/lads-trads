@@ -5,6 +5,8 @@
 /// testé sans téléphone.
 library;
 
+import '../text/line_labels.dart';
+
 /// Une réplique telle qu'envoyée à la fenêtre.
 class PlayLine {
   const PlayLine({required this.kind, required this.text, this.speaker, this.id});
@@ -138,7 +140,7 @@ class Playback {
   /// Lettre de la branche en cours (« A », « B »…), `null` hors branche.
   String? get branchLetter {
     final option = current?.optionIndex;
-    return option == null ? null : String.fromCharCode(65 + option);
+    return option == null ? null : optionLetter(option);
   }
 
   bool get canGoBack => _index > 0 || _part > 0;

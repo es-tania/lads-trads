@@ -6,6 +6,7 @@ import '../../data/models.dart';
 import '../../data/services.dart';
 import '../../theme/ink.dart';
 import '../../widgets/ink_sheet.dart';
+import '../../widgets/ink_labeled.dart';
 
 /// Panneau du bas pour créer un dossier, ou modifier [folder].
 ///
@@ -167,7 +168,7 @@ class _FolderSheetState extends State<_FolderSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _Labeled(
+              child: InkLabeled(
                 label: 'Nom',
                 child: TextField(
                   controller: _name,
@@ -182,7 +183,7 @@ class _FolderSheetState extends State<_FolderSheet> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _Labeled(
+              child: InkLabeled(
                 label: 'Personnage',
                 child: DropdownButtonFormField<int>(
                   initialValue: _characterId,
@@ -201,17 +202,17 @@ class _FolderSheetState extends State<_FolderSheet> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 8),
-          Text(_error!, style: const TextStyle(fontSize: 13, color: InkColors.error)),
+          Text(_error!, style: InkText.error),
         ],
         const SizedBox(height: 20),
-        _Labeled(
+        InkLabeled(
           label: "Type d'histoire",
           gap: 8,
           child: _TypeList(selected: _type, onChanged: _setType),
         ),
         if (_type == FolderType.memoria) ...[
           const SizedBox(height: 20),
-          _Labeled(
+          InkLabeled(
             label: 'Rareté',
             gap: 8,
             child: _RarityPicker(
@@ -229,7 +230,7 @@ class _FolderSheetState extends State<_FolderSheet> {
               style: TextButton.styleFrom(
                 foregroundColor: InkColors.danger,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
-                textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
+                textStyle: InkText.buttonSmall,
               ),
               icon: const Icon(Icons.delete_outline_rounded, size: 18),
               label: const Text('Supprimer le dossier'),
@@ -249,25 +250,6 @@ class _FolderSheetState extends State<_FolderSheet> {
   }
 }
 
-class _Labeled extends StatelessWidget {
-  const _Labeled({required this.label, required this.child, this.gap = 4});
-
-  final String label;
-  final Widget child;
-  final double gap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: InkColors.textMuted)),
-        SizedBox(height: gap),
-        child,
-      ],
-    );
-  }
-}
 
 /// Liste de boutons radio : un type par ligne.
 class _TypeList extends StatelessWidget {

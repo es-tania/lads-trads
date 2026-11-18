@@ -128,14 +128,14 @@ class _ExportSheetState extends State<ExportSheet> {
       children: [
         InkSheetHeader(eyebrow: widget.story.title, title: 'Exporter en .docx'),
         const SizedBox(height: 20),
-        const Text('Langue', style: TextStyle(fontSize: 13, color: InkColors.textMuted)),
+        const Text('Langue', style: InkText.label),
         const SizedBox(height: 8),
         _LanguageList(value: _language, englishAvailable: _hasEnglish, onChanged: (l) => setState(() => _language = l)),
         if (!_hasEnglish) ...[
           const SizedBox(height: 8),
           const Text(
             "Histoire importée sans anglais : seul le français s'exporte.",
-            style: TextStyle(fontSize: 13, color: InkColors.textFaint),
+            style: InkText.hint,
           ),
         ],
         const SizedBox(height: 20),
@@ -148,7 +148,7 @@ class _ExportSheetState extends State<ExportSheet> {
             title: const Text('Inclure mes notes de traduction', style: TextStyle(fontSize: 15)),
             subtitle: const Text(
               'En commentaires Word, dans la marge',
-              style: TextStyle(fontSize: 13, color: InkColors.textFaint),
+              style: InkText.hint,
             ),
           ),
         ),
@@ -167,7 +167,7 @@ class _ExportSheetState extends State<ExportSheet> {
                 _language == ExportLanguage.bilingual
                     ? 'Pour relire : ce fichier ne se réimporte pas'
                     : "Même mise en forme que tes fichiers d'origine, donc réimportable",
-                style: const TextStyle(fontSize: 13, color: InkColors.textFaint),
+                style: InkText.hint,
               ),
             ],
           ),
@@ -181,7 +181,7 @@ class _ExportSheetState extends State<ExportSheet> {
                 style: OutlinedButton.styleFrom(
                   backgroundColor: InkColors.transparent,
                   minimumSize: const Size(44, 48),
-                  textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
+                  textStyle: InkText.button,
                 ),
                 icon: const Icon(Icons.share_outlined, size: 16, color: InkColors.textMuted),
                 label: const Text('Partager'),
@@ -277,7 +277,7 @@ class _LanguageList extends StatelessWidget {
                     children: [
                       Text(language.label, style: const TextStyle(fontSize: 15, color: InkColors.text)),
                       const SizedBox(height: 2),
-                      Text(language.hint, style: const TextStyle(fontSize: 13, color: InkColors.textFaint)),
+                      Text(language.hint, style: InkText.hint),
                     ],
                   ),
                 ),

@@ -12,6 +12,7 @@ import '../../theme/ink.dart';
 import '../../widgets/image_crop.dart';
 import '../../widgets/ink_widgets.dart';
 import 'folder_choice.dart';
+import '../../widgets/ink_labeled.dart';
 
 /// Fichier choisi par la traductrice.
 class _Picked {
@@ -244,7 +245,7 @@ class _ImportScreenState extends State<ImportScreen> {
                       _filesGroup(),
                       if (_error != null) ...[
                         const SizedBox(height: 8),
-                        Text(_error!, style: const TextStyle(fontSize: 13, color: InkColors.error)),
+                        Text(_error!, style: InkText.error),
                       ],
                       const SizedBox(height: 24),
                       if (replacing)
@@ -342,7 +343,8 @@ class _ImportScreenState extends State<ImportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _Field(
+              child: InkLabeled(
+                alignment: CrossAxisAlignment.start,
                 label: 'Personnage',
                 child: DropdownButtonFormField<int>(
                   initialValue: _characterId,
@@ -363,7 +365,8 @@ class _ImportScreenState extends State<ImportScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _Field(
+              child: InkLabeled(
+                alignment: CrossAxisAlignment.start,
                 label: 'Dossier',
                 child: DropdownButtonFormField<String>(
                   key: ValueKey(_characterId),
@@ -385,7 +388,8 @@ class _ImportScreenState extends State<ImportScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        _Field(
+        InkLabeled(
+          alignment: CrossAxisAlignment.start,
           label: 'Titre',
           child: TextField(controller: _title, textCapitalization: TextCapitalization.sentences),
         ),
@@ -394,24 +398,6 @@ class _ImportScreenState extends State<ImportScreen> {
   }
 }
 
-class _Field extends StatelessWidget {
-  const _Field({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: InkColors.textMuted)),
-        const SizedBox(height: 4),
-        child,
-      ],
-    );
-  }
-}
 
 class _Badge extends StatelessWidget {
   const _Badge(this.text);

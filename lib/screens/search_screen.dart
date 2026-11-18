@@ -86,7 +86,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                           Text(story.title, style: InkText.row),
                                           Text(
                                             '${story.characterName} · ${story.folderName}',
-                                            style: const TextStyle(fontSize: 13, color: InkColors.textFaint),
+                                            style: InkText.hint,
                                           ),
                                         ],
                                       ),

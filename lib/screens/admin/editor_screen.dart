@@ -7,6 +7,7 @@ import '../../data/services.dart';
 import '../../theme/ink.dart';
 import '../../widgets/markup_field.dart';
 import 'line_sheet.dart';
+import '../../text/line_labels.dart';
 
 /// Ce que l'éditeur affiche pour une partie.
 typedef _EditorData = ({Story? story, List<Part> parts, List<LineRow> lines, List<String> speakers});
@@ -210,7 +211,7 @@ class _EditorScreenState extends State<EditorScreen> {
               data,
               part,
               eyebrow: '${part.displayTitle} · à la fin',
-              like: data.lines.where((l) => l.parentId == null && _spoken(l)).lastOrNull,
+              like: data.lines.where((l) => l.parentId == null && l.kind.isSpoken).lastOrNull,
               save: (d) => library.appendLine(part.id, kind: d.kind, text: d.text, speaker: d.speaker, note: d.note),
             ),
           ),
@@ -220,11 +221,6 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 }
 
-bool _spoken(LineRow l) => l.kind != LineRowKind.choice && l.kind != LineRowKind.option;
-
-String _number(int n) => 'L.${n.toString().padLeft(3, '0')}';
-
-String _letter(int i) => String.fromCharCode(65 + i);
 
 class _Header extends StatelessWidget {
   const _Header({required this.title, required this.part, required this.saved});
@@ -263,7 +259,7 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          if (saved) const Text('Enregistré', style: TextStyle(fontSize: 13, color: InkColors.textFaint)),
+          if (saved) const Text('Enregistré', style: InkText.hint),
         ],
       ),
     );
@@ -385,13 +381,13 @@ class _LineList extends StatelessWidget {
         final options = children[line.id] ?? const <LineRow>[];
         rows.add(
           _ChoiceBlock(
-            number: _number(number + 1),
+            number: lineLabel(number + 1),
             options: [for (final o in options) (o, children[o.id] ?? const <LineRow>[])],
             selected: selected,
             onEdit: onEdit,
             onInsertAfter: onInsertAfter,
             onEditOption: onEditOption,
-            onAddOption: () => onAddOption(line, _letter(options.length)),
+            onAddOption: () => onAddOption(line, optionLetter(options.length)),
             onAddToBranch: onAddToBranch,
           ),
         );
@@ -400,7 +396,7 @@ class _LineList extends StatelessWidget {
         continue;
       }
       number++;
-      final where = _number(number);
+      final where = lineLabel(number);
       rows.add(_LineTile(number: where, line: line, selected: selected == line.id, onTap: () => onEdit(line, where)));
       if (selected == line.id) rows.add(_InsertDivider(onTap: () => onInsertAfter(line, where)));
     }
@@ -577,14 +573,14 @@ class _ChoiceBlock extends StatelessWidget {
                 for (final (i, (option, branch)) in options.indexed) ...[
                   const SizedBox(height: 12),
                   _Branch(
-                    letter: _letter(i),
+                    letter: optionLetter(i),
                     option: option,
                     lines: branch,
                     selected: selected,
                     onEdit: onEdit,
                     onInsertAfter: onInsertAfter,
-                    onEditOption: () => onEditOption(option, _letter(i), branch.length),
-                    onAdd: () => onAddToBranch(option, _letter(i)),
+                    onEditOption: () => onEditOption(option, optionLetter(i), branch.length),
+                    onAdd: () => onAddToBranch(option, optionLetter(i)),
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -644,7 +640,7 @@ class _Branch extends StatelessWidget {
                       TextSpan(text: option.text),
                     ],
                   ),
-                  style: const TextStyle(fontSize: 13, color: InkColors.textMuted),
+                  style: InkText.label,
                 ),
               ),
             ),
@@ -745,7 +741,7 @@ class _BottomBar extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(44, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
+                  textStyle: InkText.button,
                 ),
                 icon: const Icon(Icons.upload_outlined, size: 18, color: InkColors.textMuted),
                 label: const Text('Importer'),

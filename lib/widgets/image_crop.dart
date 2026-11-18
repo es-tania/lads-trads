@@ -256,7 +256,7 @@ class _CoverCropSheetState extends State<_CoverCropSheet> {
         const Text(
           'Glisse le cadre, et règle sa taille avec le curseur',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13, color: InkColors.textFaint),
+          style: InkText.hint,
         ),
         const SizedBox(height: 16),
         Row(

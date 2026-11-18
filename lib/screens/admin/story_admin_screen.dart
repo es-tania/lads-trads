@@ -14,6 +14,7 @@ import '../../widgets/image_crop.dart';
 import '../../widgets/ink_widgets.dart';
 import 'export_sheet.dart';
 import 'folder_choice.dart';
+import '../../widgets/ink_labeled.dart';
 
 /// Ce que la fiche affiche, chargé d'un coup.
 typedef _StoryData = ({
@@ -239,7 +240,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
                     children: [
                       _coverSection(story),
                       const SizedBox(height: 24),
-                      _Field(
+                      InkLabeled(
                         label: 'Titre',
                         child: TextField(controller: _title, textCapitalization: TextCapitalization.sentences),
                       ),
@@ -249,7 +250,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
                       if (choice != null)
                         Text(
                           'Type ${choice.type == FolderType.memoria ? 'Memoria' : choice.type.label}, repris du dossier',
-                          style: const TextStyle(fontSize: 13, color: InkColors.textFaint),
+                          style: InkText.hint,
                         ),
                       const SizedBox(height: 24),
                       const InkSectionLabel('Contenu'),
@@ -295,7 +296,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
                       foregroundColor: InkColors.danger,
                       minimumSize: const Size(44, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
+                      textStyle: InkText.button,
                     ),
                     child: const Text('Supprimer'),
                   ),
@@ -342,7 +343,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Couverture', style: TextStyle(fontSize: 13, color: InkColors.textMuted)),
+              const Text('Couverture', style: InkText.label),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _saving ? null : _pickCover,
@@ -385,7 +386,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: _Field(
+          child: InkLabeled(
             label: 'Personnage',
             child: DropdownButtonFormField<int>(
               initialValue: _characterId,
@@ -405,7 +406,7 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _Field(
+          child: InkLabeled(
             label: 'Dossier',
             child: DropdownButtonFormField<String>(
               key: ValueKey(_characterId),
@@ -429,21 +430,3 @@ class _StoryAdminScreenState extends State<StoryAdminScreen> {
   }
 }
 
-class _Field extends StatelessWidget {
-  const _Field({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: InkColors.textMuted)),
-        const SizedBox(height: 4),
-        child,
-      ],
-    );
-  }
-}

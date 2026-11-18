@@ -123,7 +123,7 @@ class InkSheetActions extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               backgroundColor: InkColors.transparent,
               minimumSize: const Size(44, 48),
-              textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
+              textStyle: InkText.button,
             ),
             child: const Text('Annuler'),
           ),

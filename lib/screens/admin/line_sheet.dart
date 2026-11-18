@@ -6,6 +6,7 @@ import '../../theme/ink.dart';
 import '../../widgets/ink_segmented.dart';
 import '../../widgets/ink_sheet.dart';
 import '../../widgets/markup_field.dart';
+import '../../widgets/ink_labeled.dart';
 
 /// Contenu saisi dans le panneau d'une réplique.
 class LineDraft {
@@ -174,7 +175,8 @@ class _LineSheetState extends State<_LineSheet> {
       children: [
         InkSheetHeader(eyebrow: widget.eyebrow, title: _creating ? 'Nouvelle réplique' : 'Modifier la réplique'),
         const SizedBox(height: 20),
-        _Labeled(
+        InkLabeled(
+          gap: 8,
           label: 'Type',
           child: InkSegmented<LineRowKind>(
             value: _kind,
@@ -192,7 +194,8 @@ class _LineSheetState extends State<_LineSheet> {
         ),
         if (_kind != LineRowKind.narration) ...[
           const SizedBox(height: 20),
-          _Labeled(
+          InkLabeled(
+            gap: 8,
             label: 'Personnage',
             child: Wrap(
               spacing: 8,
@@ -220,7 +223,8 @@ class _LineSheetState extends State<_LineSheet> {
             ),
         ],
         const SizedBox(height: 20),
-        _Labeled(
+        InkLabeled(
+          gap: 8,
           label: 'Texte',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -250,14 +254,15 @@ class _LineSheetState extends State<_LineSheet> {
                       ),
                     ],
                   ),
-                  style: const TextStyle(fontSize: 13, color: InkColors.textFaint),
+                  style: InkText.hint,
                 ),
               ],
             ],
           ),
         ),
         const SizedBox(height: 20),
-        _Labeled(
+        InkLabeled(
+          gap: 8,
           label: 'Note de traduction',
           child: TextField(
             controller: _note,
@@ -313,24 +318,6 @@ class _LineSheetState extends State<_LineSheet> {
   }
 }
 
-class _Labeled extends StatelessWidget {
-  const _Labeled({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: InkColors.textMuted)),
-        const SizedBox(height: 8),
-        child,
-      ],
-    );
-  }
-}
 
 class _SpeakerChip extends StatelessWidget {
   const _SpeakerChip({required this.name, required this.onTap, this.selected = false, this.other = false});
@@ -409,7 +396,7 @@ class _SmallButton extends StatelessWidget {
         minimumSize: const Size(44, 40),
         padding: const EdgeInsets.symmetric(horizontal: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
+        textStyle: InkText.buttonSmall,
       ),
       child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
@@ -463,7 +450,7 @@ class _RenameSpeakerDialogState extends State<_RenameSpeakerDialog> {
             const SizedBox(height: 12),
             Text(
               '${_lines(counts.inStory)} dans cette histoire',
-              style: const TextStyle(fontSize: 13, color: InkColors.textMuted),
+              style: InkText.label,
             ),
             if (others > 0)
               CheckboxListTile(
@@ -474,7 +461,7 @@ class _RenameSpeakerDialogState extends State<_RenameSpeakerDialog> {
                 title: const Text('Dans toutes les histoires', style: TextStyle(fontSize: 15)),
                 subtitle: Text(
                   '+ ${_lines(others)} ailleurs',
-                  style: const TextStyle(fontSize: 13, color: InkColors.textFaint),
+                  style: InkText.hint,
                 ),
               ),
           ],
@@ -616,7 +603,8 @@ class _OptionSheetState extends State<_OptionSheet> {
       children: [
         InkSheetHeader(eyebrow: widget.eyebrow, title: widget.title),
         const SizedBox(height: 20),
-        _Labeled(
+        InkLabeled(
+          gap: 8,
           label: 'Libellé du choix',
           child: TextField(
             controller: _label,
@@ -635,7 +623,7 @@ class _OptionSheetState extends State<_OptionSheet> {
               style: TextButton.styleFrom(
                 foregroundColor: InkColors.danger,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
-                textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
+                textStyle: InkText.buttonSmall,
               ),
               icon: const Icon(Icons.delete_outline_rounded, size: 18),
               label: const Text('Supprimer la branche'),

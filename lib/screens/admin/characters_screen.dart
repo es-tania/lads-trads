@@ -284,7 +284,7 @@ class _ImageSheetState extends State<_ImageSheet> {
               style: TextButton.styleFrom(
                 minimumSize: const Size(44, 36),
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 14),
+                textStyle: InkText.buttonSmall,
               ),
               child: const Text('Annuler'),
             ),
@@ -303,7 +303,7 @@ class _ImageSheetState extends State<_ImageSheet> {
                 const SizedBox(height: 8),
                 const Text(
                   'Glisse le cercle sur le visage',
-                  style: TextStyle(fontSize: 13, color: InkColors.textFaint),
+                  style: InkText.hint,
                 ),
               ],
             ),
@@ -330,7 +330,7 @@ class _ImageSheetState extends State<_ImageSheet> {
                 style: OutlinedButton.styleFrom(
                   backgroundColor: InkColors.raised,
                   minimumSize: const Size(44, 48),
-                  textStyle: const TextStyle(fontFamily: InkFonts.ui, fontSize: 15),
+                  textStyle: InkText.button,
                 ),
                 child: const Text('Choisir une image'),
               ),
