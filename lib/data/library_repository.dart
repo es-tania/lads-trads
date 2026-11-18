@@ -267,11 +267,13 @@ class LibraryRepository extends ChangeNotifier {
 
   /// Dossier d'un personnage pour ce type, créé s'il n'existe pas encore.
   Future<int> folderFor(int characterId, FolderType type, {int? rarity}) async {
+    // sqflite refuse `null` en argument : « rarity IS NULL » est écrit en clair.
+    final wantedRarity = type == FolderType.memoria ? rarity : null;
     final existing = await _db.query(
       'folders',
       columns: ['id'],
-      where: 'character_id = ? AND type = ? AND rarity IS ?',
-      whereArgs: [characterId, type.code, type == FolderType.memoria ? rarity : null],
+      where: 'character_id = ? AND type = ? AND rarity ${wantedRarity == null ? 'IS NULL' : '= ?'}',
+      whereArgs: [characterId, type.code, ?wantedRarity],
       limit: 1,
     );
     if (existing.isNotEmpty) return existing.single['id']! as int;
